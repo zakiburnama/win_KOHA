@@ -36,12 +36,17 @@ quickmenu/
     ├── show-reminder.ps1           # fires a reminder's notification, then unregisters its own task
     ├── list-reminders.ps1          # prints pending reminders — backs the Cancel Reminder submenu
     ├── cancel-reminder.ps1         # unregisters one pending reminder by task name
+    ├── toggle-wallpaper-slideshow.ps1 # enables/disables the 30-min auto-rotation task
+    ├── get-prayer-times.ps1        # fetches today's prayer times — backs the Waktu Sholat submenu display
+    ├── sync-prayer-reminders.ps1   # reconciles today's prayer-reminder tasks with settings — see Prayer times below
+    ├── show-prayer-reminder.ps1    # fires a prayer reminder's notification, then unregisters its own task
+    ├── install-prayer-schedule.ps1 # one-time setup: registers the daily Scheduled Task that runs the sync
     └── run-hidden.vbs              # launches a sibling .ps1 with zero console-window flash — see Gotchas
 ```
 
 ## Actions
 
-Most items are defined in `RunAction()` in [quickmenu_light.ahk](quickmenu_light.ahk:275) — Color Scheme, Reminder, and Cancel Reminder are handled separately (they open a second-level picker instead of firing immediately):
+Most items are defined in `RunAction()` in [quickmenu_light.ahk](quickmenu_light.ahk:380) — Color Scheme, Reminder, and Wallpaper Slideshow are handled separately:
 
 | Menu item | Action |
 |---|---|
@@ -49,9 +54,9 @@ Most items are defined in `RunAction()` in [quickmenu_light.ahk](quickmenu_light
 | Open WezTerm | Launches WezTerm (`Run("wezterm-gui")` — not `wezterm.exe`, see [Gotchas](#gotchas) below) |
 | Obsidian | Launches Obsidian via its full path under `%LOCALAPPDATA%\Programs\Obsidian\` — it's a per-user Electron install, not on PATH (see [Gotchas](#gotchas)) |
 | Color Scheme | Opens the theme picker described below |
-| Next Wallpaper | Advances the wallpaper by one image, on demand — see [Wallpaper slideshow](#wallpaper-slideshow) below. Same one-shot behavior as Windows' own right-click *Next desktop background*: runs `rotate-wallpaper.ps1` once (hidden, non-blocking) and the popup closes immediately — it doesn't wait around watching it apply |
-| Reminder | Opens the duration picker described in [Reminders](#reminders) below |
-| Cancel Reminder | Opens a live list of pending reminders to cancel — see [Reminders](#reminders) below |
+| Next Wallpaper | Advances the wallpaper by one image, on demand — see [Wallpaper slideshow](#wallpaper-slideshow) below. Works regardless of the Wallpaper Slideshow toggle's state — runs `rotate-wallpaper.ps1` once (hidden, non-blocking) and the popup closes immediately |
+| Wallpaper Slideshow (ON/OFF) | Toggles the automatic 30-min rotation on or off — see [Wallpaper slideshow](#wallpaper-slideshow) below. Label reflects current state; picking it flips and stays open, like Color Scheme |
+| Reminder | Opens the duration picker, plus Cancel Reminder and Waktu Sholat — see [Reminders](#reminders) and [Prayer times](#prayer-times-waktu-sholat) below |
 | Lock PC | Locks the workstation (`LockWorkStation`) |
 | Sleep | Suspends the machine (`SetSuspendState`) |
 | Close All Windows | Closes every open window (`WinClose` over `WinGetList()`) |
@@ -110,11 +115,13 @@ To stop it: `Unregister-ScheduledTask -TaskName 'QuickMenu Light - Wallpaper Rot
 
 The task runs as the current user, not SYSTEM — SYSTEM runs in session 0 and can't touch the interactive desktop's wallpaper, so `Register-ScheduledTask` deliberately leaves `-User`/`-Principal` at its default (current user, standard rights, no elevation needed).
 
+**Turning the automatic rotation on/off**: the **Wallpaper Slideshow (ON/OFF)** menu item toggles just the 30-min Scheduled Task — [toggle-wallpaper-slideshow.ps1](scripts/toggle-wallpaper-slideshow.ps1) calls `Enable-ScheduledTask`/`Disable-ScheduledTask` on `QuickMenu Light - Wallpaper Rotation` to match. It has **no effect** on wallpaper changes from switching themes or from **Next Wallpaper** — both call `Set-DesktopWallpaper`/`rotate-wallpaper.ps1` directly, entirely separate code paths from the scheduled task. Picking it stays open and updates its own label immediately (same "flip and see the result" pattern as Color Scheme), while `quickmenu_settings.ini`'s `WallpaperSlideshow` key is what `quickmenu_light.ahk` reads at startup to show the right label without needing to query Task Scheduler (slow) just to draw the menu.
+
 ### Reminders
 
-Selecting **Reminder** opens a submenu of fixed durations — `5 min`, `10 min`, `15 min`, `30 min`, `60 min`. Unlike Color Scheme, picking one closes the popup right away instead of staying open — there's no "try a few" use case for a timer. Press Escape to step back to the main menu without setting anything.
+Selecting **Reminder** opens a submenu of fixed durations — `5 min`, `10 min`, `15 min`, `30 min`, `60 min` — plus a **Cancel Reminder** entry at the bottom. Picking a duration closes the popup right away instead of staying open, unlike Color Scheme — there's no "try a few" use case for a timer. Press Escape to step back to the main menu without setting anything.
 
-Durations are a fixed list, not free text — this app has no text-input control anywhere (no `Edit` box, nothing to type into), and a reminder timer didn't seem worth being the first thing that breaks that. Want a different set of durations? Edit `REMINDER_OPTIONS` in [quickmenu_light.ahk](quickmenu_light.ahk:40) *and* the matching `[ValidateSet(...)]` in [set-reminder.ps1](scripts/set-reminder.ps1) — they have to stay in sync, since the AHK side just strips `" min"` off the chosen label and passes the number straight through.
+Durations are a fixed list, not free text — this app has no text-input control anywhere (no `Edit` box, nothing to type into), and a reminder timer didn't seem worth being the first thing that breaks that. Want a different set of durations? Edit `REMINDER_OPTIONS` in [quickmenu_light.ahk](quickmenu_light.ahk:49) *and* the matching `[ValidateSet(...)]` in [set-reminder.ps1](scripts/set-reminder.ps1) — they have to stay in sync, since the AHK side just strips `" min"` off the chosen label and passes the number straight through.
 
 Picking a duration runs [set-reminder.ps1](scripts/set-reminder.ps1) (hidden, non-blocking, same `Run(..., "Hide")` pattern as everything else here), which:
 1. Registers a **one-time** Task Scheduler task (unique name, timestamped, so overlapping reminders don't collide) that fires [show-reminder.ps1](scripts/show-reminder.ps1) at the target time — same "nothing idle in memory while waiting" reasoning as the wallpaper rotation task.
@@ -124,13 +131,30 @@ When the task fires, `show-reminder.ps1` shows a balloon + beep ("Reminder: 10 m
 
 Reminders survive a restart or sleep — Task Scheduler tasks are stored on disk, not in memory, and `-StartWhenAvailable` (set when the task is registered) means a reminder that should've fired while the machine was off/asleep fires as soon as it's back, instead of being silently skipped.
 
-**Checking what's pending, or cancelling one**: selecting **Cancel Reminder** runs [list-reminders.ps1](scripts/list-reminders.ps1) and shows each pending reminder as `"10 min -> 3:45 PM"` (or `(no reminders set)` if there's nothing pending — picking that does nothing, only Escape backs out). Picking one runs [cancel-reminder.ps1](scripts/cancel-reminder.ps1) with that reminder's exact task name, which `Unregister-ScheduledTask`s it and confirms with a notification.
+**Checking what's pending, or cancelling one**: inside the Reminder submenu, picking **Cancel Reminder** runs [list-reminders.ps1](scripts/list-reminders.ps1) and shows each pending reminder as `"10 min -> 3:45 PM"` (or `(no reminders set)` if there's nothing pending — picking that does nothing, only Escape backs out, which from here goes back to the Reminder submenu specifically, not all the way to the main menu). Picking one runs [cancel-reminder.ps1](scripts/cancel-reminder.ps1) with that reminder's exact task name, which `Unregister-ScheduledTask`s it and confirms with a notification.
 
-This is the **one place in the app that waits on PowerShell** instead of firing it hidden/non-blocking — `list-reminders.ps1` has to actually run and return its output *before* the submenu can be sized and drawn, so opening Cancel Reminder has a brief (~0.2–0.4s) delay where the rest of QuickMenu Light is instant. `quickmenu_light.ahk`'s `GetPendingReminders()` gets that output via `ComObject("WScript.Shell").Exec(...).StdOut.ReadAll()` rather than `Run()` — the only spot in this codebase using that pattern.
+This is one of **two places in the app that wait on PowerShell** instead of firing it hidden/non-blocking (the other is Waktu Sholat, below) — `list-reminders.ps1` has to actually run and return its output *before* the submenu can be sized and drawn, so opening Cancel Reminder has a brief (~0.2–0.4s) delay where the rest of QuickMenu Light is instant. `quickmenu_light.ahk`'s `GetPendingReminders()` gets that output via `RunWait(cmd, , "Hide")` + `FileRead()` on a file `list-reminders.ps1` writes to (`%TEMP%\quickmenu-pending-reminders.txt`) — see [Gotchas](#gotchas) for why it's not `WScript.Shell.Exec` + `StdOut.ReadAll()` (the original implementation, which broke the popup).
 
 You can check the same thing manually any time without opening QuickMenu Light: `Get-ScheduledTask | Where-Object { $_.TaskName -like 'QuickMenu Light - Reminder *' }`.
 
 Both scripts log to `%TEMP%\quickmenu-apply-theme.log`, same file every other script here uses.
+
+### Prayer times (Waktu Sholat)
+
+Inside the Reminder submenu, **Waktu Sholat** opens a settings submenu: a master **Waktu Sholat (ON/OFF)** toggle, then one row per daily prayer — **Subuh**, **Dzuhur**, **Ashar**, **Maghrib**, **Isya** — each showing today's actual time (e.g. `Dzuhur 11:50 (ON)`) and independently toggleable. Every row flips and stays open, same pattern as Wallpaper Slideshow and Color Scheme. Escape backs out to the Reminder submenu, not all the way to main (same as Cancel Reminder).
+
+Like Cancel Reminder, opening this submenu **waits on PowerShell** ([get-prayer-times.ps1](scripts/get-prayer-times.ps1), via the same `RunWait(..., "Hide")` + `FileRead()` pattern) to fetch today's times before it can draw rows with times in them — same brief delay, same reason. If the fetch fails (offline, API down), the rows still show without a time rather than the submenu failing to open.
+
+**Data source**: the free [myQuran API](https://api.myquran.com/doc) (`api.myquran.com`, sourced from Kementerian Agama RI / Kemenag), no API key needed. City is hardcoded in `lib.ps1` (`$PrayerCityId`/`$PrayerCityName`, currently Jakarta) rather than a setting — same "personal single-user tool, hardcoding beats config indirection" reasoning as `$WallpapersRoot`. To change cities, look up the new id and edit both values together:
+```powershell
+curl "https://api.myquran.com/v3/sholat/kabkota/cari/<city-keyword>"
+```
+
+**Why this needed its own scheduling mechanism**, separate from the fixed-duration Reminder system: prayer times are a *different time every day* (and drift gradually through the year), so a reminder can't just be "N minutes from now" — it has to be "whatever Dzuhur's time is today." [sync-prayer-reminders.ps1](scripts/sync-prayer-reminders.ps1) is the core of this:
+1. It's **idempotent** — always starts by cancelling every `QuickMenu Light - Sholat * <today>` task, then re-registers one-time tasks (same self-unregistering pattern as regular reminders, firing [show-prayer-reminder.ps1](scripts/show-prayer-reminder.ps1)) only for prayers that are master-enabled, individually enabled, *and* haven't already happened today — flipping Subuh off after it already fired this morning doesn't try to un-fire it, and toggling something on at 2pm doesn't try to schedule this morning's Subuh for today.
+2. It's called from **two places**: a recurring Scheduled Task (`QuickMenu Light - Sholat Daily Refresh`, daily at 00:05, registered once via [install-prayer-schedule.ps1](scripts/install-prayer-schedule.ps1)) that sets up each new day, and directly (hidden, non-blocking) from `quickmenu_light.ahk` every time a Waktu Sholat toggle is flipped, so a change takes effect for the rest of *today* instead of waiting until tomorrow's refresh.
+
+Toggle state lives in `quickmenu_settings.ini` (`SholatEnabled` for the master, `SholatSubuh`/`SholatDzuhur`/`SholatAshar`/`SholatMaghrib`/`SholatIsya` individually — default missing = off for the master, on for each prayer) — read by both `quickmenu_light.ahk` (`IniRead`, for the menu) and, for the first time in this codebase, by a PowerShell script (`Get-IniValue` in `lib.ps1`, for the scheduler). AHK's `IniWrite` saves this file as **UTF-16LE with a BOM** (confirmed via hex dump) — `Get-IniValue` reads with `-Encoding Unicode` (Windows PowerShell 5.1's name for that) specifically because of this; the default encoding produces null-byte garbage that matches nothing. PowerShell only ever *reads* this file — AHK remains the sole writer.
 
 ## Running it
 

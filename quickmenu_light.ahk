@@ -34,10 +34,25 @@ ACTIVE_THEME := IniRead(SETTINGS_FILE, "Settings", "Theme", "amber")
 if !THEMES.Has(ACTIVE_THEME)
     ACTIVE_THEME := "amber"
 
+; On/off buat rotasi wallpaper OTOMATIS tiap 30 menit doang (Scheduled
+; Task-nya sendiri) -- gak ngaruh ke wallpaper pas ganti tema atau pas klik
+; "Next Wallpaper" manual, dua-duanya jalur kode terpisah. Baca dari INI
+; biar render menu instan (gak perlu query Task Scheduler yang lebih
+; lambat tiap buka QuickMenu) -- lihat ToggleWallpaperSlideshow().
+WALLPAPER_SLIDESHOW_ENABLED := IniRead(SETTINGS_FILE, "Settings", "WallpaperSlideshow", "1") = "1"
+
 ; Durasi tetap (bukan input teks bebas) -- konsisten sama gaya keyboard-only
 ; (Up/Down/Enter) yang dipakai di seluruh app ini, gak ada Edit control sama
 ; sekali. Lihat set-reminder.ps1 buat ValidateSet yang sama persis.
-REMINDER_OPTIONS := ["5 min", "10 min", "15 min", "30 min", "60 min"]
+; "Waktu Sholat" & "Cancel Reminder" digabung ke sini (bukan menu utama
+; lagi) -- munculnya di submenu Reminder, di bawah pilihan durasi.
+REMINDER_OPTIONS := ["5 min", "10 min", "15 min", "30 min", "60 min", "Waktu Sholat", "Cancel Reminder"]
+
+; Urutan tampilan/toggle 5 waktu sholat -- harus sama persis sama urutan
+; key $PrayerDisplayNames di lib.ps1 (PowerShell), walau di sini cuma
+; dipakai buat index row (1=master, 2=Subuh, ..., 6=Isya), bukan buat
+; nyocokin nama field API.
+PRAYER_NAMES := ["Subuh", "Dzuhur", "Ashar", "Maghrib", "Isya"]
 
 baseItems := [
   "Open Terminal",
@@ -45,8 +60,8 @@ baseItems := [
   "Obsidian",
   "Color Scheme",
   "Next Wallpaper",
+  "Wallpaper Slideshow",
   "Reminder",
-  "Cancel Reminder",
   "Lock PC",
   "Sleep",
   "Close All Windows",
@@ -55,7 +70,7 @@ baseItems := [
 ShowMenu()
 
 ShowMenu() {
-    global baseItems, THEMES, THEME_NAMES, GLOBAL_THEMES, REMINDER_OPTIONS, ACTIVE_THEME, SETTINGS_FILE
+    global baseItems, THEMES, THEME_NAMES, GLOBAL_THEMES, REMINDER_OPTIONS, PRAYER_NAMES, ACTIVE_THEME, SETTINGS_FILE, WALLPAPER_SLIDESHOW_ENABLED
 
     margin := 6
     itemH := 26
@@ -68,19 +83,23 @@ ShowMenu() {
     myGui.OnEvent("Close", (*) => ExitApp())
 
     ; state.mode "main" = menu utama, "theme" = submenu Color Scheme,
-    ; "reminder" = submenu Reminder, "cancel" = submenu Cancel Reminder.
-    ; state.theme (bukan variabel lokal biasa) supaya bisa diganti dari
-    ; dalam OnEnter() saat pilih tema baru -- closure AHK aman nulis
+    ; "reminder" = submenu Reminder, "cancel" = submenu Cancel Reminder
+    ; (anak "reminder"), "sholat" = submenu Waktu Sholat (anak "reminder"
+    ; juga). state.theme (bukan variabel lokal biasa) supaya bisa diganti
+    ; dari dalam OnEnter() saat pilih tema baru -- closure AHK aman nulis
     ; property object, tapi tidak dijamin aman nulis-ulang variabel lokal
-    ; biasa dari nested func. state.cancelList sama alasannya -- diisi
-    ; SwitchToCancelMode() sebelum SwitchMode("cancel") dipanggil.
-    ; ctrls dibuat sebanyak baris TERBANYAK dari baseItems/THEME_NAMES/
-    ; REMINDER_OPTIONS (state.cancelList gak ikut dihitung, panjangnya baru
-    ; ketauan runtime -- kalau reminder pending lebih banyak dari itu,
-    ; sisanya gak kegambar; skenario ekstrem yang gak realistis buat tool
-    ; personal ini). Baris yang gak dipakai di-nonaktifkan (Visible=false)
-    ; tergantung mode aktif.
-    state := { selected: 1, mode: "main", theme: THEMES[ACTIVE_THEME], cancelList: [] }
+    ; biasa dari nested func. state.cancelList/sholatTimes sama alasannya
+    ; -- diisi SwitchToCancelMode()/SwitchToSholatMode() sebelum
+    ; SwitchMode() dipanggil. ctrls dibuat sebanyak baris TERBANYAK dari
+    ; baseItems/THEME_NAMES/REMINDER_OPTIONS (state.cancelList dan submenu
+    ; sholat -- 6 baris, 5 sholat + master -- gak ikut dihitung eksplisit,
+    ; tapi baseItems udah lebih panjang dari keduanya jadi aman). Baris
+    ; yang gak dipakai di-nonaktifkan (Visible=false) tergantung mode aktif.
+    state := {
+        selected: 1, mode: "main", theme: THEMES[ACTIVE_THEME],
+        cancelList: [], slideshowEnabled: WALLPAPER_SLIDESHOW_ENABLED,
+        sholatTimes: Map(), sholatMaster: false, sholatToggles: Map()
+    }
     ; BackColor dipakai sebagai "bezel" di sekeliling item -- Text control di
     ; bawah cuma nutup area x/y=margin..w/h-margin, sisanya nampilin ini.
     myGui.BackColor := state.theme.bezel
@@ -94,8 +113,14 @@ ShowMenu() {
     }
 
     CurrentList() {
-        if state.mode = "main"
-            return baseItems
+        if state.mode = "main" {
+            ; Cuma "Wallpaper Slideshow" yang butuh label dinamis -- item
+            ; lain di baseItems dilewatin apa adanya.
+            list := []
+            for item in baseItems
+                list.Push(item = "Wallpaper Slideshow" ? item (state.slideshowEnabled ? " (ON)" : " (OFF)") : item)
+            return list
+        }
         if state.mode = "reminder"
             return REMINDER_OPTIONS
         if state.mode = "cancel" {
@@ -104,6 +129,18 @@ ShowMenu() {
             list := []
             for r in state.cancelList
                 list.Push(r.label)
+            return list
+        }
+        if state.mode = "sholat" {
+            ; Baris 1 = master, baris 2..6 = PRAYER_NAMES -- urutan INDEX
+            ; ini yang dipakai OnEnter() buat nentuin mana yang di-toggle,
+            ; bukan parsing ulang teks label (labelnya dinamis, ada jam-nya).
+            list := ["Waktu Sholat" (state.sholatMaster ? " (ON)" : " (OFF)")]
+            for name in PRAYER_NAMES {
+                time := state.sholatTimes.Has(name) ? state.sholatTimes[name] " " : ""
+                on := state.sholatToggles.Has(name) ? state.sholatToggles[name] : true
+                list.Push(name " " time (on ? "(ON)" : "(OFF)"))
+            }
             return list
         }
         list := []
@@ -149,9 +186,10 @@ ShowMenu() {
         Render()
     }
 
-    ; Satu-satunya tempat di app ini yang NUNGGU PowerShell selesai dulu
-    ; (RunWait, bukan Run() async kayak di tempat lain) -- submenu Cancel
-    ; Reminder butuh daftar reminder yang BENERAN pending SEBELUM bisa
+    ; Dua submenu di app ini yang NUNGGU PowerShell selesai dulu (RunWait,
+    ; bukan Run() async kayak di tempat lain): Cancel Reminder di sini, dan
+    ; SwitchToSholatMode() di bawah. Keduanya butuh data yang BENERAN
+    ; akurat (daftar reminder pending / jam sholat hari ini) SEBELUM bisa
     ; nentuin tinggi window & isi baris-barisnya, jadi gak bisa async kayak
     ; fan-out tema/wallpaper. Konsekuensinya: buka submenu ini ada jeda
     ; kecil (proses powershell.exe baru nyala), beda dari bagian lain
@@ -159,6 +197,57 @@ ShowMenu() {
     SwitchToCancelMode() {
         state.cancelList := GetPendingReminders()
         SwitchMode("cancel")
+    }
+
+    ; Sinkron juga (lihat komentar SwitchToCancelMode) -- ambil jam sholat
+    ; hari ini dari get-prayer-times.ps1 (biar labelnya nampilin jam,
+    ; misal "Dzuhur 11:50"), plus baca status toggle master + 5 individual
+    ; langsung dari INI (IniRead native AHK, instan, gak perlu subprocess
+    ; kedua). Kalau fetch API gagal (offline dll), state.sholatTimes tetap
+    ; kosong -- CurrentList() udah nangani itu, baris-nya tampil tanpa jam.
+    SwitchToSholatMode() {
+        state.sholatTimes := GetPrayerTimesForDisplay()
+        state.sholatMaster := IniRead(SETTINGS_FILE, "Settings", "SholatEnabled", "0") = "1"
+        state.sholatToggles := Map()
+        for name in PRAYER_NAMES
+            state.sholatToggles[name] := IniRead(SETTINGS_FILE, "Settings", "Sholat" name, "1") = "1"
+        SwitchMode("sholat")
+    }
+
+    ; Sama pola kayak ToggleWallpaperSlideshow -- flip + tetap kebuka, INI
+    ; ditulis dulu (sumber kebenaran buat render berikutnya), baru
+    ; fire-and-forget sync-prayer-reminders.ps1 buat nyocokin Scheduled
+    ; Task hari ini sama toggle yang baru. idx 1 = baris master, idx 2..6
+    ; = PRAYER_NAMES[idx-1] -- lihat CurrentList() soal urutan barisnya.
+    ToggleSholatSetting(idx) {
+        if idx = 1 {
+            state.sholatMaster := !state.sholatMaster
+            IniWrite(state.sholatMaster ? "1" : "0", SETTINGS_FILE, "Settings", "SholatEnabled")
+        } else {
+            name := PRAYER_NAMES[idx - 1]
+            state.sholatToggles[name] := !state.sholatToggles[name]
+            IniWrite(state.sholatToggles[name] ? "1" : "0", SETTINGS_FILE, "Settings", "Sholat" name)
+        }
+        Render()
+        scriptPath := A_ScriptDir "\scripts\sync-prayer-reminders.ps1"
+        Run('powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' scriptPath '"', , "Hide")
+    }
+
+    ; Flip + tetap kebuka (kayak Color Scheme) -- bukan RunAction, biar
+    ; kamu bisa langsung lihat label-nya berubah tanpa harus buka-tutup
+    ; QuickMenu ulang buat konfirmasi tersimpan. Nulis ke INI dulu (sumber
+    ; kebenaran buat render menu berikutnya, instan) baru fire-and-forget
+    ; toggle-wallpaper-slideshow.ps1 buat Enable/Disable Scheduled Task-nya
+    ; yang beneran -- INI dan Scheduled Task jadi 2 hal yang disinkronkan
+    ; setiap toggle, bukan satu sumber tunggal.
+    ToggleWallpaperSlideshow() {
+        global WALLPAPER_SLIDESHOW_ENABLED
+        state.slideshowEnabled := !state.slideshowEnabled
+        WALLPAPER_SLIDESHOW_ENABLED := state.slideshowEnabled
+        IniWrite(state.slideshowEnabled ? "1" : "0", SETTINGS_FILE, "Settings", "WallpaperSlideshow")
+        Render()
+        scriptPath := A_ScriptDir "\scripts\toggle-wallpaper-slideshow.ps1"
+        Run('powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' scriptPath '" -Enabled ' (state.slideshowEnabled ? "1" : "0"), , "Hide")
     }
 
     OnItemClick(ctrlObj, *) {
@@ -185,21 +274,31 @@ ShowMenu() {
                 SwitchMode("theme")
             else if choice = "Reminder"
                 SwitchMode("reminder")
-            else if choice = "Cancel Reminder"
-                SwitchToCancelMode()
+            else if InStr(choice, "Wallpaper Slideshow") = 1
+                ToggleWallpaperSlideshow()
             else
                 RunAction(myGui, choice)
         } else if state.mode = "reminder" {
-            ; Beda dari submenu tema -- pilih durasi langsung nutup popup
-            ; (kayak RunAction), bukan tetap kebuka. Gak ada alasan buat
-            ; "coba-coba beberapa durasi" kayak ganti-ganti tema.
-            SetReminder(myGui, choice)
+            if choice = "Cancel Reminder" {
+                SwitchToCancelMode()
+            } else if choice = "Waktu Sholat" {
+                SwitchToSholatMode()
+            } else {
+                ; Beda dari submenu tema -- pilih durasi langsung nutup
+                ; popup (kayak RunAction), bukan tetap kebuka. Gak ada
+                ; alasan buat "coba-coba beberapa durasi" kayak ganti tema.
+                SetReminder(myGui, choice)
+            }
         } else if state.mode = "cancel" {
             ; Placeholder "(no reminders set)" -- Enter gak ngapa-ngapain,
             ; cuma Escape yang bisa keluar dari sini.
             if state.cancelList.Length = 0
                 return
             CancelReminder(myGui, state.cancelList[state.selected].taskName)
+        } else if state.mode = "sholat" {
+            ; Toggle + tetap kebuka -- lihat ToggleSholatSetting soal
+            ; index 1=master, 2..6=PRAYER_NAMES.
+            ToggleSholatSetting(state.selected)
         } else {
             ; Terapkan tema langsung (live) & tetap di submenu -- biar bisa
             ; coba-coba beberapa tema dulu sebelum keluar, bukan langsung exit.
@@ -245,9 +344,15 @@ ShowMenu() {
         if myGui.Closing || allowed.Has(wParam)
             return
         ; Escape (27) di submenu manapun (mode != "main") = mundur satu
-        ; halaman ke menu utama dulu, bukan langsung nutup. Escape di menu
-        ; utama, atau tombol lain apapun di mode manapun, tetap langsung
-        ; nutup seperti biasa.
+        ; halaman ke PARENT-nya dulu, bukan langsung nutup -- "cancel" dan
+        ; "sholat" anaknya "reminder" (Cancel Reminder & Waktu Sholat
+        ; ada di dalam submenu Reminder), submenu lain semua anak langsung
+        ; "main". Escape di menu utama, atau tombol lain apapun di mode
+        ; manapun, tetap langsung nutup seperti biasa.
+        if wParam = 27 && (state.mode = "cancel" || state.mode = "sholat") {
+            SwitchMode("reminder")
+            return
+        }
         if wParam = 27 && state.mode != "main" {
             SwitchMode("main")
             return
@@ -355,4 +460,29 @@ CancelReminder(myGui, taskName) {
     scriptPath := A_ScriptDir "\scripts\cancel-reminder.ps1"
     Run('powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' scriptPath '" -TaskName "' taskName '"', , "Hide")
     ExitApp()
+}
+
+; Sinkron (lihat komentar SwitchToCancelMode) -- sama pola persis
+; GetPendingReminders(): RunWait+FileRead, bukan WScript.Shell.Exec.
+; get-prayer-times.ps1 nulis "key|DisplayName|HH:MM" per baris (key-nya
+; gak dipakai di sini, DisplayName-nya yang jadi key Map biar match
+; langsung sama PRAYER_NAMES). File kosong (fetch API gagal) -> Map
+; kosong, dan CurrentList() nangani itu dengan nampilin baris tanpa jam.
+GetPrayerTimesForDisplay() {
+    scriptPath := A_ScriptDir "\scripts\get-prayer-times.ps1"
+    outFile := A_Temp "\quickmenu-prayer-times.txt"
+    if FileExist(outFile)
+        FileDelete(outFile)
+    RunWait('powershell.exe -NoProfile -ExecutionPolicy Bypass -File "' scriptPath '"', , "Hide")
+    output := FileExist(outFile) ? FileRead(outFile) : ""
+    times := Map()
+    for line in StrSplit(Trim(output, "`r`n"), "`n") {
+        line := Trim(line, "`r")
+        if line = ""
+            continue
+        parts := StrSplit(line, "|")
+        if parts.Length = 3
+            times[parts[2]] := parts[3]
+    }
+    return times
 }
