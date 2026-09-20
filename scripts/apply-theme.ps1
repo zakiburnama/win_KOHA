@@ -21,7 +21,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [ValidateSet('catppuccin-mocha', 'gruvbox')]
+    [ValidateSet('game_boy', 'amber', 'green_term', 'catppuccin-mocha', 'gruvbox', 'vague')]
     [string]$Theme
 )
 
@@ -79,12 +79,257 @@ function Set-ThemeWallpaper {
 }
 
 # ---------------------------------------------------------------------------
-# Theme registry -- one source of truth for the 2 canonical global themes.
-# Adding a new global theme later: add an entry here, add it to the
-# ValidateSet above, and add a matching entry to GLOBAL_THEMES in
-# quickmenu_light.ahk (plus its own popup bg/fg/selBg/selFg/bezel there).
+# Theme registry -- one source of truth for all 6 global themes. Adding a
+# new one: add an entry here, add it to the ValidateSet above, and add a
+# matching entry to GLOBAL_THEMES in quickmenu_light.ahk (plus its own
+# popup bg/fg/selBg/selFg/bezel there).
 # ---------------------------------------------------------------------------
 $Themes = @{
+    'game_boy'          = @{
+        NvimColorscheme = 'game_boy'
+        StarshipPalette = @'
+# Classic DMG Game Boy 4-shade green -- matches QuickMenu Light's own
+# game_boy theme and colors/game_boy.lua 1:1. Unlike the other themes
+# here this is a LIGHT palette (the real DMG screen is light with dark
+# pixels), so color_fg0/color_fg1 are swapped relative to the dark themes:
+# color_fg0 is LIGHT (for the dark accent chips below), color_fg1 is DARK
+# (for the light bg1/bg3 "fade toward terminal background" chips).
+[palettes.active]
+color_fg0 = '#9bbc0f'   # lightest -- text on the dark accent chips
+color_fg1 = '#0f380f'   # darkest -- text on the light bg1/bg3 chips
+color_bg1 = '#9bbc0f'   # lightest -- matches the (light!) terminal background
+color_bg3 = '#8bac0f'   # light
+color_blue = '#0f380f'
+color_aqua = '#306230'
+color_green = '#0f380f'
+color_orange = '#306230'
+color_purple = '#0f380f'
+color_red = '#306230'
+color_yellow = '#0f380f'
+'@
+        WeztermColors   = @'
+-- Classic DMG Game Boy 4-shade green. LIGHT background on purpose -- the
+-- real DMG screen is light/yellow-green with dark pixels, not the other
+-- way around.
+config.colors = {
+	foreground = "#0F380F",
+	background = "#9BBC0F",
+
+	cursor_bg = "#0F380F",
+	cursor_fg = "#9BBC0F",
+	cursor_border = "#0F380F",
+
+	selection_fg = "#9BBC0F",
+	selection_bg = "#0F380F",
+
+	split = "#306230",
+	visual_bell = "#0F380F",
+
+	ansi = {
+		"#0F380F", -- black
+		"#306230", -- red
+		"#306230", -- green
+		"#306230", -- yellow
+		"#0F380F", -- blue
+		"#0F380F", -- magenta
+		"#306230", -- cyan
+		"#306230", -- white
+	},
+	brights = {
+		"#306230", -- bright black
+		"#0F380F", -- bright red
+		"#0F380F", -- bright green
+		"#0F380F", -- bright yellow
+		"#306230", -- bright blue
+		"#306230", -- bright magenta
+		"#0F380F", -- bright cyan
+		"#0F380F", -- bright white
+	},
+
+	tab_bar = {
+		background = "#8BAC0F",
+		active_tab = {
+			bg_color = "#0F380F",
+			fg_color = "#9BBC0F",
+		},
+		inactive_tab = {
+			bg_color = "#9BBC0F",
+			fg_color = "#0F380F",
+		},
+		inactive_tab_hover = {
+			bg_color = "#8BAC0F",
+			fg_color = "#0F380F",
+		},
+		new_tab = {
+			bg_color = "#8BAC0F",
+			fg_color = "#0F380F",
+		},
+	},
+}
+config.window_background_opacity = 1.0
+'@
+    }
+    'amber'             = @{
+        NvimColorscheme = 'amber'
+        StarshipPalette = @'
+# Amber CRT terminal -- matches QuickMenu Light's own amber theme and
+# colors/amber.lua 1:1. Standard dark-theme polarity: color_fg0 is dark
+# (for the bright amber accent chips), color_fg1 is light amber (for the
+# dark bg1/bg3 "fade toward terminal background" chips).
+[palettes.active]
+color_fg0 = '#1a0f00'
+color_fg1 = '#ffd480'
+color_bg1 = '#1a0f00'
+color_bg3 = '#2a1a00'
+color_blue = '#ffb000'
+color_aqua = '#ffd480'
+color_green = '#ffb000'
+color_orange = '#ffd480'
+color_purple = '#ffb000'
+color_red = '#ffd480'
+color_yellow = '#ffb000'
+'@
+        WeztermColors   = @'
+-- Amber CRT terminal, single-hue monochrome
+config.colors = {
+	foreground = "#FFB000",
+	background = "#1A0F00",
+
+	cursor_bg = "#FFB000",
+	cursor_fg = "#1A0F00",
+	cursor_border = "#FFB000",
+
+	selection_fg = "#1A0F00",
+	selection_bg = "#FFB000",
+
+	split = "#FFD480",
+	visual_bell = "#FFB000",
+
+	ansi = {
+		"#1A0F00", -- black
+		"#805800", -- red
+		"#805800", -- green
+		"#FFB000", -- yellow
+		"#805800", -- blue
+		"#805800", -- magenta
+		"#FFB000", -- cyan
+		"#FFB000", -- white
+	},
+	brights = {
+		"#805800", -- bright black
+		"#FFB000", -- bright red
+		"#FFB000", -- bright green
+		"#FFD480", -- bright yellow
+		"#FFB000", -- bright blue
+		"#FFB000", -- bright magenta
+		"#FFD480", -- bright cyan
+		"#FFD480", -- bright white
+	},
+
+	tab_bar = {
+		background = "#1A0F00",
+		active_tab = {
+			bg_color = "#FFB000",
+			fg_color = "#1A0F00",
+		},
+		inactive_tab = {
+			bg_color = "#805800",
+			fg_color = "#1A0F00",
+		},
+		inactive_tab_hover = {
+			bg_color = "#FFD480",
+			fg_color = "#1A0F00",
+		},
+		new_tab = {
+			bg_color = "#1A0F00",
+			fg_color = "#FFB000",
+		},
+	},
+}
+config.window_background_opacity = 1.0
+'@
+    }
+    'green_term'        = @{
+        NvimColorscheme = 'green_term'
+        StarshipPalette = @'
+# Phosphor-green CRT terminal -- matches QuickMenu Light's own green_term
+# theme and colors/green_term.lua 1:1. Standard dark-theme polarity:
+# color_fg0 is dark (for the bright green accent chips), color_fg1 is
+# light green (for the dark bg1/bg3 "fade toward terminal background"
+# chips).
+[palettes.active]
+color_fg0 = '#0a0a0a'
+color_fg1 = '#99ff99'
+color_bg1 = '#0a0a0a'
+color_bg3 = '#1a1a1a'
+color_blue = '#33ff33'
+color_aqua = '#99ff99'
+color_green = '#33ff33'
+color_orange = '#99ff99'
+color_purple = '#33ff33'
+color_red = '#99ff99'
+color_yellow = '#33ff33'
+'@
+        WeztermColors   = @'
+-- Phosphor-green CRT terminal, single-hue monochrome
+config.colors = {
+	foreground = "#33FF33",
+	background = "#0A0A0A",
+
+	cursor_bg = "#33FF33",
+	cursor_fg = "#0A0A0A",
+	cursor_border = "#33FF33",
+
+	selection_fg = "#0A0A0A",
+	selection_bg = "#33FF33",
+
+	split = "#99FF99",
+	visual_bell = "#33FF33",
+
+	ansi = {
+		"#0A0A0A", -- black
+		"#1A661A", -- red
+		"#1A661A", -- green
+		"#33FF33", -- yellow
+		"#1A661A", -- blue
+		"#1A661A", -- magenta
+		"#33FF33", -- cyan
+		"#33FF33", -- white
+	},
+	brights = {
+		"#1A661A", -- bright black
+		"#33FF33", -- bright red
+		"#33FF33", -- bright green
+		"#99FF99", -- bright yellow
+		"#33FF33", -- bright blue
+		"#33FF33", -- bright magenta
+		"#99FF99", -- bright cyan
+		"#99FF99", -- bright white
+	},
+
+	tab_bar = {
+		background = "#0A0A0A",
+		active_tab = {
+			bg_color = "#33FF33",
+			fg_color = "#0A0A0A",
+		},
+		inactive_tab = {
+			bg_color = "#1A661A",
+			fg_color = "#0A0A0A",
+		},
+		inactive_tab_hover = {
+			bg_color = "#99FF99",
+			fg_color = "#0A0A0A",
+		},
+		new_tab = {
+			bg_color = "#0A0A0A",
+			fg_color = "#33FF33",
+		},
+	},
+}
+config.window_background_opacity = 1.0
+'@
+    }
     'catppuccin-mocha' = @{
         NvimColorscheme = 'catppuccin-mocha'
         StarshipPalette = @'
@@ -161,6 +406,7 @@ config.colors = {
 		},
 	},
 }
+config.window_background_opacity = 1.0
 '@
     }
     'gruvbox'           = @{
@@ -241,6 +487,89 @@ config.colors = {
 		},
 	},
 }
+config.window_background_opacity = 1.0
+'@
+    }
+    'vague'             = @{
+        NvimColorscheme = 'vague'
+        StarshipPalette = @'
+# Vague (vague2k/vague.nvim, already installed -- uses its real palette
+# 1:1, pulled from lua/vague/config/internal.lua, not invented). Standard
+# dark-theme polarity: color_fg0 is dark bg (for the pastel accent chips
+# below), color_fg1 is light fg (for the dark bg1/bg3 chips).
+[palettes.active]
+color_fg0 = '#141415'   # bg
+color_fg1 = '#cdcdcd'   # fg
+color_bg1 = '#141415'   # bg: matches the terminal background
+color_bg3 = '#252530'   # line
+color_blue = '#7e98e8'  # hint
+color_aqua = '#9bb4bc'  # type
+color_green = '#7fa563' # plus (git diff add)
+color_orange = '#e0a363' # number
+color_purple = '#aeaed1' # constant
+color_red = '#d8647e'   # error
+color_yellow = '#f3be7c' # warning
+'@
+        WeztermColors   = @'
+-- Vague (vague2k/vague.nvim palette, ported 1:1) -- the one theme here
+-- that runs transparent (window_background_opacity below), so the
+-- wallpaper shows through.
+config.colors = {
+	foreground = "#CDCDCD",
+	background = "#141415",
+
+	cursor_bg = "#7E98E8",
+	cursor_fg = "#141415",
+	cursor_border = "#7E98E8",
+
+	selection_fg = "#CDCDCD",
+	selection_bg = "#333738",
+
+	split = "#878787",
+	visual_bell = "#F3BE7C",
+
+	ansi = {
+		"#141415", -- black
+		"#D8647E", -- red
+		"#7FA563", -- green
+		"#F3BE7C", -- yellow
+		"#6E94B2", -- blue
+		"#BB9DBD", -- magenta
+		"#9BB4BC", -- cyan
+		"#CDCDCD", -- white
+	},
+	brights = {
+		"#606079", -- bright black
+		"#D8647E", -- bright red
+		"#7FA563", -- bright green
+		"#F3BE7C", -- bright yellow
+		"#7E98E8", -- bright blue
+		"#AEAED1", -- bright magenta
+		"#B4D4CF", -- bright cyan
+		"#CDCDCD", -- bright white
+	},
+
+	tab_bar = {
+		background = "#1C1C24",
+		active_tab = {
+			bg_color = "#7E98E8",
+			fg_color = "#141415",
+		},
+		inactive_tab = {
+			bg_color = "#252530",
+			fg_color = "#606079",
+		},
+		inactive_tab_hover = {
+			bg_color = "#333738",
+			fg_color = "#CDCDCD",
+		},
+		new_tab = {
+			bg_color = "#1C1C24",
+			fg_color = "#606079",
+		},
+	},
+}
+config.window_background_opacity = 0.85
 '@
     }
 }

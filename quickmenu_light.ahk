@@ -12,20 +12,25 @@
 ; bezel = warna window di sekeliling item (lihat myGui.BackColor di ShowMenu).
 THEMES := Map(
     "game_boy", { bg: "9BBC0F", fg: "0F380F", selBg: "0F380F", selFg: "9BBC0F", bezel: "0F380F" },
-    "vintage",  { bg: "F4E9D8", fg: "3E2C23", selBg: "3E2C23", selFg: "F4E9D8", bezel: "3E2C23" },
     "amber",    { bg: "1A0F00", fg: "FFB000", selBg: "FFB000", selFg: "1A0F00", bezel: "FFB000" },
     "green_term", { bg: "0A0A0A", fg: "33FF33", selBg: "33FF33", selFg: "0A0A0A", bezel: "33FF33" },
     "catppuccin-mocha", { bg: "1E1E2E", fg: "CDD6F4", selBg: "CBA6F7", selFg: "1E1E2E", bezel: "11111B" },
     "gruvbox",  { bg: "282828", fg: "EBDBB2", selBg: "FE8019", selFg: "282828", bezel: "1D2021" },
+    "vague",    { bg: "141415", fg: "CDCDCD", selBg: "6E94B2", selFg: "141415", bezel: "1C1C24" },
 )
-THEME_NAMES := ["game_boy", "vintage", "amber", "green_term", "catppuccin-mocha", "gruvbox"]
+THEME_NAMES := ["game_boy", "amber", "green_term", "catppuccin-mocha", "gruvbox", "vague"]
 
-; Themes in this set are "global" -- besides restyling QuickMenu Light's own
-; popup like every theme does, picking one also fans out via apply-theme.ps1
-; to Neovim/WezTerm/Starship (see README.md). The 4 retro CRT themes above
-; stay QuickMenu-only on purpose -- they have no natural editor/terminal
-; equivalent, unlike catppuccin-mocha/gruvbox which are already in use there.
-GLOBAL_THEMES := Map("catppuccin-mocha", true, "gruvbox", true)
+; Every theme is "global" now -- picking any of them, besides restyling
+; QuickMenu Light's own popup, also fans out via apply-theme.ps1 to
+; Neovim/WezTerm/Starship/wallpaper (see README.md). Custom minimal
+; colorschemes were hand-written for game_boy/amber/green_term (no ready-
+; made Neovim plugin matches these retro-monochrome looks closely enough,
+; and this avoids adding a new plugin dependency to the dotfiles repo just
+; for 1 of the 3) -- see dotfiles/nvim/.config/nvim/colors/. vague uses
+; the already-installed vague.nvim plugin as-is, and is the one theme
+; that also makes WezTerm transparent (window_background_opacity in
+; apply-theme.ps1's WeztermColors for it).
+GLOBAL_THEMES := Map("game_boy", true, "amber", true, "green_term", true, "catppuccin-mocha", true, "gruvbox", true, "vague", true)
 
 ; Tema aktif dibaca dari file settings (dibuat/diupdate otomatis lewat menu
 ; "Color Scheme" di bawah) -- kalau belum ada / rusak, fallback ke "amber".
@@ -250,6 +255,15 @@ ShowMenu() {
         Run('powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' scriptPath '" -Enabled ' (state.slideshowEnabled ? "1" : "0"), , "Hide")
     }
 
+    ; Tetap kebuka (bukan RunAction) -- biar bisa dipencet berkali-kali buat
+    ; "scroll" ganti-ganti wallpaper tanpa harus buka-tutup QuickMenu tiap
+    ; kali. Gak ada state di popup ini sendiri yang perlu di-Render() ulang
+    ; -- feedback-nya keliatan langsung di wallpaper desktop di belakang
+    ; popup, bukan di dalam popup-nya.
+    AdvanceWallpaper() {
+        Run('powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' A_ScriptDir '\scripts\rotate-wallpaper.ps1"', , "Hide")
+    }
+
     OnItemClick(ctrlObj, *) {
         for i, c in ctrls {
             if c = ctrlObj && ctrlObj.Visible {
@@ -276,6 +290,8 @@ ShowMenu() {
                 SwitchMode("reminder")
             else if InStr(choice, "Wallpaper Slideshow") = 1
                 ToggleWallpaperSlideshow()
+            else if choice = "Next Wallpaper"
+                AdvanceWallpaper()
             else
                 RunAction(myGui, choice)
         } else if state.mode = "reminder" {
@@ -399,12 +415,6 @@ RunAction(myGui, item) {
             DllCall("PowrProf\SetSuspendState", "Int", 0, "Int", 0, "Int", 0)
         case "Obsidian":
             Run(EnvGet("LOCALAPPDATA") "\Programs\Obsidian\Obsidian.exe")
-        case "Next Wallpaper":
-            ; Sama persis script yang dipanggil scheduled task tiap 30 menit
-            ; (lihat rotate-wallpaper.ps1) -- ini cuma manggilnya on-demand.
-            ; Hidden & non-blocking: popup ketutup instan, wallpaper ganti
-            ; sepersekian detik kemudian di belakang layar.
-            Run('powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' A_ScriptDir '\scripts\rotate-wallpaper.ps1"', , "Hide")
     }
     ExitApp()
 }

@@ -46,7 +46,7 @@ quickmenu/
 
 ## Actions
 
-Most items are defined in `RunAction()` in [quickmenu_light.ahk](quickmenu_light.ahk:380) — Color Scheme, Reminder, and Wallpaper Slideshow are handled separately:
+Most items are defined in `RunAction()` in [quickmenu_light.ahk](quickmenu_light.ahk:392) — Color Scheme, Reminder, Wallpaper Slideshow, and Next Wallpaper are handled separately (they stay open or need extra state instead of firing once and closing):
 
 | Menu item | Action |
 |---|---|
@@ -54,7 +54,7 @@ Most items are defined in `RunAction()` in [quickmenu_light.ahk](quickmenu_light
 | Open WezTerm | Launches WezTerm (`Run("wezterm-gui")` — not `wezterm.exe`, see [Gotchas](#gotchas) below) |
 | Obsidian | Launches Obsidian via its full path under `%LOCALAPPDATA%\Programs\Obsidian\` — it's a per-user Electron install, not on PATH (see [Gotchas](#gotchas)) |
 | Color Scheme | Opens the theme picker described below |
-| Next Wallpaper | Advances the wallpaper by one image, on demand — see [Wallpaper slideshow](#wallpaper-slideshow) below. Works regardless of the Wallpaper Slideshow toggle's state — runs `rotate-wallpaper.ps1` once (hidden, non-blocking) and the popup closes immediately |
+| Next Wallpaper | Advances the wallpaper by one image, on demand — see [Wallpaper slideshow](#wallpaper-slideshow) below. Works regardless of the Wallpaper Slideshow toggle's state. Stays open (like Color Scheme) so you can press it repeatedly to cycle through several — no in-popup feedback, the wallpaper change itself (visible on the desktop around the popup) is the confirmation |
 | Wallpaper Slideshow (ON/OFF) | Toggles the automatic 30-min rotation on or off — see [Wallpaper slideshow](#wallpaper-slideshow) below. Label reflects current state; picking it flips and stays open, like Color Scheme |
 | Reminder | Opens the duration picker, plus Cancel Reminder and Waktu Sholat — see [Reminders](#reminders) and [Prayer times](#prayer-times-waktu-sholat) below |
 | Lock PC | Locks the workstation (`LockWorkStation`) |
@@ -67,33 +67,35 @@ To add or change an item, edit the `baseItems` array and the matching `case` in 
 
 Selecting **Color Scheme** from the menu opens a submenu of the available themes. Pick one with Up/Down + Enter and it applies **immediately, live** — the submenu stays open so you can flip through a few before settling on one — and is written to `quickmenu_settings.ini` next to the exe, so it's remembered the next time QuickMenu Light opens. Press Escape to step back to the main menu, or Escape again (or any other key, or clicking outside) to close.
 
+Every theme here is **global** — see [below](#global-themes-nvim--wezterm--starship--wallpaper) — there's no QuickMenu-only tier anymore.
+
 | Theme | Look |
 |---|---|
 | `game_boy` | Classic DMG Game Boy 4-shade green |
-| `vintage` | Warm cream paper / dark brown ink |
 | `amber` | Amber CRT terminal (black bg, amber text) |
 | `green_term` | Phosphor-green CRT terminal |
-| `catppuccin-mocha` | Catppuccin Mocha — also restyles nvim/WezTerm/Starship + wallpaper, see [below](#global-themes-nvim--wezterm--starship--wallpaper) |
-| `gruvbox` | Gruvbox Dark — also restyles nvim/WezTerm/Starship + wallpaper, see [below](#global-themes-nvim--wezterm--starship--wallpaper) |
+| `catppuccin-mocha` | Catppuccin Mocha |
+| `gruvbox` | Gruvbox Dark |
+| `vague` | [vague.nvim](https://github.com/vague2k/vague.nvim)'s own palette, ported 1:1. The one theme where WezTerm also runs **transparent** (`window_background_opacity = 0.85`) — see below |
 
-To add a new theme, add an entry to the `THEMES` map and its name to `THEME_NAMES` at the top of [quickmenu_light.ahk](quickmenu_light.ahk:13) — it'll show up in the picker automatically. Each theme is `{ bg, fg, selBg, selFg, bezel }`: normal background/text, selected-item background/text (reverse-video, like an old terminal menu highlight), and the window's own background color (shows as a thin border/bezel around the item list) — all hex, no `#` prefix.
+To add a new theme, add an entry to the `THEMES` map and its name to `THEME_NAMES` at the top of [quickmenu_light.ahk](quickmenu_light.ahk:13) — it'll show up in the picker automatically. Each theme is `{ bg, fg, selBg, selFg, bezel }`: normal background/text, selected-item background/text (reverse-video, like an old terminal menu highlight), and the window's own background color (shows as a thin border/bezel around the item list) — all hex, no `#` prefix. To make it global too, add a matching entry to `GLOBAL_THEMES` right below `THEMES`, and a registry entry in `scripts/apply-theme.ps1` (see the next section).
 
 The font is the classic Windows raster font `Terminal`, chosen specifically because it renders as blocky pixels at small sizes with zero extra files — change the font name/size in `Render()` if you want something else.
 
 ### Global themes (nvim / WezTerm / Starship / wallpaper)
 
-Two of the six entries — `catppuccin-mocha` and `gruvbox` — are **global**: picking one restyles the QuickMenu Light popup like any other theme *and* fans out to the rest of the terminal/editor setup (plus the desktop wallpaper) in one shot. The other four (`game_boy`, `vintage`, `amber`, `green_term`) are retro CRT looks with no natural editor/terminal equivalent, so they stay QuickMenu-only on purpose.
+All six entries are **global**: picking one restyles the QuickMenu Light popup like any other theme *and* fans out to the rest of the terminal/editor setup (plus the desktop wallpaper) in one shot. There used to be a QuickMenu-only tier (retro CRT looks with "no natural editor/terminal equivalent") and a seventh theme, `vintage` — both retired once `game_boy`/`amber`/`green_term` got hand-written Neovim colorschemes (see the Neovim row below) and matching WezTerm/Starship palettes, closing that gap.
 
 The fan-out is [apply-theme.ps1](scripts/apply-theme.ps1), launched hidden and non-blocking (`Run(..., "Hide")`) from `OnEnter()` whenever the chosen theme is in the `GLOBAL_THEMES` set. It touches four things, all hardcoded machine-specific paths (this is a personal single-user tool, not a portable one):
 
 | Tool | File | How |
 |---|---|---|
-| Neovim | `%LOCALAPPDATA%\Temp\nvim\theme.txt` | Whole-file overwrite with the colorscheme name — the same file `theme.lua` (in the [dotfiles](https://github.com/zakiburnama/dotfiles) repo, `nvim/.config/nvim/lua/config/theme.lua`) reads on startup and writes on every `:colorscheme` change, so this is just "pretend the user ran `:colorscheme x`". Takes effect on next nvim launch, **not** in an already-running session. |
+| Neovim | `%LOCALAPPDATA%\Temp\nvim\theme.txt` | Whole-file overwrite with the colorscheme name — the same file `theme.lua` (in the [dotfiles](https://github.com/zakiburnama/dotfiles) repo, `nvim/.config/nvim/lua/config/theme.lua`) reads on startup and writes on every `:colorscheme` change, so this is just "pretend the user ran `:colorscheme x`". Takes effect on next nvim launch, **not** in an already-running session. `catppuccin-mocha`/`gruvbox`/`vague` use the already-installed plugins of the same name (`vague`'s own palette is ported 1:1 into Starship/WezTerm too, pulled from its actual source rather than guessed); `game_boy`/`amber`/`green_term` are hand-written `colors/*.lua` files in the dotfiles nvim config — no existing plugin matched these retro-monochrome looks closely enough, and writing them avoids adding new plugin dependencies for just 3 of 6 themes. Each sets ~60 highlight groups (classic + Treesitter `@` captures) from a small palette (bg/bg_alt/fg/fg_dim/fg_bright) with bold/italic/dim standing in for the hue variety a monochrome palette can't provide — `game_boy` is the one **light**-background theme in the set (the real DMG screen is light with dark pixels), so its `fg0`/`fg1` polarity (see the Starship row) is inverted relative to the rest. |
 | Starship | `dotfiles/starship/.config/starship.toml` | Replaces the contents between `# BEGIN THEME PALETTE` / `# END THEME PALETTE` markers. The palette table is permanently named `[palettes.active]` (`palette = 'active'` never changes) specifically so the script never has to hunt for a varying table name — it only ever swaps what's *inside* those markers. Static TOML, no live reload: the new prompt appears on the next shell/tab, not the current one. |
-| WezTerm | `dotfiles/wezterm/.config/wezterm/wezterm.lua` | Replaces the contents between `-- BEGIN THEME COLORS` / `-- END THEME COLORS` markers with a full new `config.colors = { ... }` block. WezTerm auto-reloads its config on file change, so this one *does* apply live to already-open windows. |
-| Desktop wallpaper | `dotfiles/wallpapers/<theme>/` | Sets the desktop wallpaper (Fill style) to the alphabetically-first `.jpg`/`.jpeg`/`.png`/`.bmp` found in that theme's folder, via the `SystemParametersInfo` Win32 API (shared with `rotate-wallpaper.ps1`, see below). Applies live immediately. Drop your own image(s) in `dotfiles/wallpapers/catppuccin-mocha/` and `dotfiles/wallpapers/gruvbox/` — an empty or missing folder is treated as "not set up yet" and silently skipped, not an error. With more than one image in a folder, prefix filenames (e.g. `01-foo.jpg`) to control which one shows first — the pick is always deterministic (alphabetical), never random. |
+| WezTerm | `dotfiles/wezterm/.config/wezterm/wezterm.lua` | Replaces the contents between `-- BEGIN THEME COLORS` / `-- END THEME COLORS` markers with a full new `config.colors = { ... }` block **and** `config.window_background_opacity` — both live inside the marked region together, so transparency is just another per-theme value, not a separate mechanism. Every theme sets `1.0` (opaque) except `vague`, which sets `0.85`. WezTerm auto-reloads its config on file change, so this one *does* apply live to already-open windows. |
+| Desktop wallpaper | `dotfiles/wallpapers/<theme>/` | Sets the desktop wallpaper (Fill style) to the alphabetically-first `.jpg`/`.jpeg`/`.png`/`.bmp` found in that theme's folder, via the `SystemParametersInfo` Win32 API (shared with `rotate-wallpaper.ps1`, see below). Applies live immediately. Drop your own image(s) in `dotfiles/wallpapers/<theme>/` for any of the 6 — an empty or missing folder is treated as "not set up yet" and silently skipped, not an error. With more than one image in a folder, prefix filenames (e.g. `01-foo.jpg`) to control which one shows first — the pick is always deterministic (alphabetical), never random. |
 
-Adding a third global theme: add an entry to the `$Themes` registry and the `ValidateSet` in `scripts/apply-theme.ps1`, a matching `THEMES`/`GLOBAL_THEMES` entry in `quickmenu_light.ahk`, and a `dotfiles/wallpapers/<theme>/` folder if you want wallpaper support for it too. The marker-delimited approach means the two dotfiles only ever get a wholesale block swap — never partial line edits — so a bad/missing marker fails loudly (`Set-MarkedBlock` throws if it doesn't find exactly one match) instead of silently corrupting the file.
+Adding another global theme: add an entry to the `$Themes` registry and the `ValidateSet` in `scripts/apply-theme.ps1` (remember the closing `config.window_background_opacity = 1.0` line inside `WeztermColors`, unless the new theme should be transparent too), a matching `THEMES`/`GLOBAL_THEMES` entry in `quickmenu_light.ahk`, a `dotfiles/wallpapers/<theme>/` folder, and either an installed Neovim colorscheme plugin or a hand-written `colors/<theme>.lua` (copy one of the existing three as a starting point — swap its 6 palette values, everything else stays the same shape). The marker-delimited approach means the two dotfiles only ever get a wholesale block swap — never partial line edits — so a bad/missing marker fails loudly (`Set-MarkedBlock` throws if it doesn't find exactly one match) instead of silently corrupting the file.
 
 Failures aren't shown anywhere (the script runs with no window) — check `%TEMP%\quickmenu-apply-theme.log` if a global theme pick didn't seem to take effect somewhere.
 
@@ -121,7 +123,7 @@ The task runs as the current user, not SYSTEM — SYSTEM runs in session 0 and c
 
 Selecting **Reminder** opens a submenu of fixed durations — `5 min`, `10 min`, `15 min`, `30 min`, `60 min` — plus a **Cancel Reminder** entry at the bottom. Picking a duration closes the popup right away instead of staying open, unlike Color Scheme — there's no "try a few" use case for a timer. Press Escape to step back to the main menu without setting anything.
 
-Durations are a fixed list, not free text — this app has no text-input control anywhere (no `Edit` box, nothing to type into), and a reminder timer didn't seem worth being the first thing that breaks that. Want a different set of durations? Edit `REMINDER_OPTIONS` in [quickmenu_light.ahk](quickmenu_light.ahk:49) *and* the matching `[ValidateSet(...)]` in [set-reminder.ps1](scripts/set-reminder.ps1) — they have to stay in sync, since the AHK side just strips `" min"` off the chosen label and passes the number straight through.
+Durations are a fixed list, not free text — this app has no text-input control anywhere (no `Edit` box, nothing to type into), and a reminder timer didn't seem worth being the first thing that breaks that. Want a different set of durations? Edit `REMINDER_OPTIONS` in [quickmenu_light.ahk](quickmenu_light.ahk:50) *and* the matching `[ValidateSet(...)]` in [set-reminder.ps1](scripts/set-reminder.ps1) — they have to stay in sync, since the AHK side just strips `" min"` off the chosen label and passes the number straight through.
 
 Picking a duration runs [set-reminder.ps1](scripts/set-reminder.ps1) (hidden, non-blocking, same `Run(..., "Hide")` pattern as everything else here), which:
 1. Registers a **one-time** Task Scheduler task (unique name, timestamped, so overlapping reminders don't collide) that fires [show-reminder.ps1](scripts/show-reminder.ps1) at the target time — same "nothing idle in memory while waiting" reasoning as the wallpaper rotation task.
