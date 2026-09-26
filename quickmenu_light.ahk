@@ -60,8 +60,9 @@ REMINDER_OPTIONS := ["5 min", "10 min", "15 min", "30 min", "60 min", "Waktu Sho
 PRAYER_NAMES := ["Subuh", "Dzuhur", "Ashar", "Maghrib", "Isya"]
 
 baseItems := [
-  "Open Terminal",
+  "Open Terminal (Admin)",
   "Open WezTerm",
+  "Open WezTerm (Admin)",
   "Obsidian",
   "Color Scheme",
   "Next Wallpaper",
@@ -405,10 +406,15 @@ RunAction(myGui, item) {
         case "Close All Windows":
             for win in WinGetList()
                 WinClose(win)
-        case "Open Terminal":
+        case "Open Terminal (Admin)":
             Run("*RunAs wt.exe")
         case "Open WezTerm":
             Run("wezterm-gui")
+        case "Open WezTerm (Admin)":
+            ; Sama "*RunAs" verb yang udah kebukti jalan buat wt.exe di
+            ; atas -- wezterm-gui (bukan wezterm.exe, lihat Gotchas) tetap
+            ; dipanggil bare-name lewat PATH, cuma ditambah elevasi.
+            Run("*RunAs wezterm-gui")
         case "Lock PC":
             DllCall("LockWorkStation")
         case "Sleep":

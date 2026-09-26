@@ -50,8 +50,9 @@ Most items are defined in `RunAction()` in [quickmenu_light.ahk](quickmenu_light
 
 | Menu item | Action |
 |---|---|
-| Open Terminal | Launches Windows Terminal elevated (`Run("*RunAs wt.exe")`) — triggers a UAC prompt since QuickMenu Light itself runs unelevated |
-| Open WezTerm | Launches WezTerm (`Run("wezterm-gui")` — not `wezterm.exe`, see [Gotchas](#gotchas) below) |
+| Open Terminal (Admin) | Launches Windows Terminal elevated (`Run("*RunAs wt.exe")`) — triggers a UAC prompt since QuickMenu Light itself runs unelevated. Always elevated (no non-admin option) — label says so |
+| Open WezTerm | Launches WezTerm unelevated (`Run("wezterm-gui")` — not `wezterm.exe`, see [Gotchas](#gotchas) below) |
+| Open WezTerm (Admin) | Same, elevated (`Run("*RunAs wezterm-gui")`) — triggers a UAC prompt |
 | Obsidian | Launches Obsidian via its full path under `%LOCALAPPDATA%\Programs\Obsidian\` — it's a per-user Electron install, not on PATH (see [Gotchas](#gotchas)) |
 | Color Scheme | Opens the theme picker described below |
 | Next Wallpaper | Advances the wallpaper by one image, on demand — see [Wallpaper slideshow](#wallpaper-slideshow) below. Works regardless of the Wallpaper Slideshow toggle's state. Stays open (like Color Scheme) so you can press it repeatedly to cycle through several — no in-popup feedback, the wallpaper change itself (visible on the desktop around the popup) is the confirmation |
