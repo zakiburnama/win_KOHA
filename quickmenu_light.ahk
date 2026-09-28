@@ -73,17 +73,32 @@ baseItems := [
   "Close All Windows",
 ]
 
+; Item terakhir menu utama, SELALU tampil (gak ikut daftar toggle-nya
+; sendiri) -- kalau bisa di-OFF-in juga, sekali semua item disembunyiin
+; gak ada jalan balik lagi dari dalam QuickMenu selain edit INI manual.
+MENU_SETTINGS_ITEM := "Menu Settings"
+
+; Item baseItems yang disembunyiin dari menu utama, disimpan sebagai satu
+; key "HiddenMenus" (nama item dipisah "|", misal "Obsidian|Sleep") --
+; cukup 1 IniRead pas startup (bukan 11), dan default kosong = semua
+; tampil, jadi INI lama yang belum punya key ini tetap jalan apa adanya.
+HIDDEN_MENUS := Map()
+for name in StrSplit(IniRead(SETTINGS_FILE, "Settings", "HiddenMenus", ""), "|")
+    if name != ""
+        HIDDEN_MENUS[name] := true
+
 ShowMenu()
 
 ShowMenu() {
-    global baseItems, THEMES, THEME_NAMES, GLOBAL_THEMES, REMINDER_OPTIONS, PRAYER_NAMES, ACTIVE_THEME, SETTINGS_FILE, WALLPAPER_SLIDESHOW_ENABLED
+    global baseItems, THEMES, THEME_NAMES, GLOBAL_THEMES, REMINDER_OPTIONS, PRAYER_NAMES, ACTIVE_THEME, SETTINGS_FILE, WALLPAPER_SLIDESHOW_ENABLED, MENU_SETTINGS_ITEM, HIDDEN_MENUS
 
     margin := 6
     itemH := 26
     w := 300
     x := (A_ScreenWidth - w) / 2
     contentW := w - margin * 2
-    maxRows := Max(baseItems.Length, THEME_NAMES.Length, REMINDER_OPTIONS.Length)
+    ; +1 = baris "Menu Settings" di bawah baseItems (lihat CurrentList()).
+    maxRows := Max(baseItems.Length + 1, THEME_NAMES.Length, REMINDER_OPTIONS.Length)
 
     myGui := Gui("+AlwaysOnTop -Caption +ToolWindow", "QuickMenu Light")
     myGui.OnEvent("Close", (*) => ExitApp())
@@ -91,7 +106,8 @@ ShowMenu() {
     ; state.mode "main" = menu utama, "theme" = submenu Color Scheme,
     ; "reminder" = submenu Reminder, "cancel" = submenu Cancel Reminder
     ; (anak "reminder"), "sholat" = submenu Waktu Sholat (anak "reminder"
-    ; juga). state.theme (bukan variabel lokal biasa) supaya bisa diganti
+    ; juga), "menus" = submenu Menu Settings (toggle tampil/sembunyi item
+    ; menu utama). state.theme (bukan variabel lokal biasa) supaya bisa diganti
     ; dari dalam OnEnter() saat pilih tema baru -- closure AHK aman nulis
     ; property object, tapi tidak dijamin aman nulis-ulang variabel lokal
     ; biasa dari nested func. state.cancelList/sholatTimes sama alasannya
@@ -122,9 +138,24 @@ ShowMenu() {
         if state.mode = "main" {
             ; Cuma "Wallpaper Slideshow" yang butuh label dinamis -- item
             ; lain di baseItems dilewatin apa adanya.
+            ; Item yang di-OFF-in di Menu Settings dilewatin total (bukan
+            ; cuma disembunyiin barisnya) -- jadi tinggi window, navigasi
+            ; Up/Down, dan index state.selected semua otomatis ngikut.
+            list := []
+            for item in baseItems {
+                if HIDDEN_MENUS.Has(item)
+                    continue
+                list.Push(item = "Wallpaper Slideshow" ? item (state.slideshowEnabled ? " (ON)" : " (OFF)") : item)
+            }
+            list.Push(MENU_SETTINGS_ITEM)
+            return list
+        }
+        if state.mode = "menus" {
+            ; Selalu semua baseItems (urutan asli), index baris = index di
+            ; baseItems -- ToggleMenuVisibility() ngandelin ini.
             list := []
             for item in baseItems
-                list.Push(item = "Wallpaper Slideshow" ? item (state.slideshowEnabled ? " (ON)" : " (OFF)") : item)
+                list.Push(item (HIDDEN_MENUS.Has(item) ? " (OFF)" : " (ON)"))
             return list
         }
         if state.mode = "reminder"
@@ -239,6 +270,26 @@ ShowMenu() {
         Run('powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' scriptPath '"', , "Hide")
     }
 
+    ; Flip + tetap kebuka, sama pola kayak ToggleSholatSetting -- tapi
+    ; murni lokal (cuma INI), gak ada PowerShell yang perlu dijalanin.
+    ; Perubahannya baru keliatan di menu utama pas Escape balik ke sana
+    ; (SwitchMode("main") ngitung ulang tinggi window dari list baru).
+    ToggleMenuVisibility(idx) {
+        item := baseItems[idx]
+        if HIDDEN_MENUS.Has(item)
+            HIDDEN_MENUS.Delete(item)
+        else
+            HIDDEN_MENUS[item] := true
+        ; Tulis ulang dalam urutan baseItems (bukan urutan Map) biar isi
+        ; INI stabil & gampang dibaca kalau dibuka manual.
+        hidden := ""
+        for name in baseItems
+            if HIDDEN_MENUS.Has(name)
+                hidden .= (hidden = "" ? "" : "|") name
+        IniWrite(hidden, SETTINGS_FILE, "Settings", "HiddenMenus")
+        Render()
+    }
+
     ; Flip + tetap kebuka (kayak Color Scheme) -- bukan RunAction, biar
     ; kamu bisa langsung lihat label-nya berubah tanpa harus buka-tutup
     ; QuickMenu ulang buat konfirmasi tersimpan. Nulis ke INI dulu (sumber
@@ -289,6 +340,8 @@ ShowMenu() {
                 SwitchMode("theme")
             else if choice = "Reminder"
                 SwitchMode("reminder")
+            else if choice = MENU_SETTINGS_ITEM
+                SwitchMode("menus")
             else if InStr(choice, "Wallpaper Slideshow") = 1
                 ToggleWallpaperSlideshow()
             else if choice = "Next Wallpaper"
@@ -316,6 +369,8 @@ ShowMenu() {
             ; Toggle + tetap kebuka -- lihat ToggleSholatSetting soal
             ; index 1=master, 2..6=PRAYER_NAMES.
             ToggleSholatSetting(state.selected)
+        } else if state.mode = "menus" {
+            ToggleMenuVisibility(state.selected)
         } else {
             ; Terapkan tema langsung (live) & tetap di submenu -- biar bisa
             ; coba-coba beberapa tema dulu sebelum keluar, bukan langsung exit.

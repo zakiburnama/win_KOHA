@@ -61,6 +61,7 @@ Most items are defined in `RunAction()` in [quickmenu_light.ahk](quickmenu_light
 | Lock PC | Locks the workstation (`LockWorkStation`) |
 | Sleep | Suspends the machine (`SetSuspendState`) |
 | Close All Windows | Closes every open window (`WinClose` over `WinGetList()`) |
+| Menu Settings | Always the last row, and can't be hidden itself. Opens a list of every item above with an `(ON)`/`(OFF)` label. Enter flips an item (the submenu stays open); `(OFF)` items disappear from the main menu. Escape goes back to the main menu with the changes applied. Stored as `HiddenMenus=` (item names joined by `\|`) in `quickmenu_settings.ini`. Empty or missing means everything is shown |
 
 To add or change an item, edit the `baseItems` array and the matching `case` in `RunAction()`.
 
