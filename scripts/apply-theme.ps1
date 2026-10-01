@@ -1,9 +1,10 @@
 <#
     Applies a canonical global color theme across the tools QuickMenu Light's
     "Color Scheme" submenu can reach beyond its own popup: Neovim, WezTerm,
-    Starship, and the desktop wallpaper. Triggered by quickmenu_light.ahk
-    (Run(), hidden window) when the chosen theme is one of the "global"
-    entries in GLOBAL_THEMES -- see README.md for the full picture.
+    Starship, the desktop wallpaper, and an Obsidian vault. Triggered by
+    quickmenu_light.ahk (Run(), hidden window) when the chosen theme is one
+    of the "global" entries in GLOBAL_THEMES -- see README.md for the full
+    picture.
 
     Runs hidden with no console, so failures are logged (not shown) to
     %TEMP%\quickmenu-apply-theme.log rather than swallowed silently.
@@ -21,7 +22,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [ValidateSet('game_boy', 'amber', 'green_term', 'catppuccin-mocha', 'gruvbox', 'vague')]
+    [ValidateSet('game_boy', 'amber', 'green_term', 'catppuccin-mocha', 'gruvbox', 'vague', 'tokyonight')]
     [string]$Theme
 )
 
@@ -78,8 +79,66 @@ function Set-ThemeWallpaper {
     Write-Log "wallpaper: set to $($images[0].FullName)"
 }
 
+# Obsidian vault theme sync -- uses the REAL installed community theme
+# (ObsidianCssTheme: which folder under .obsidian/themes/) for the bulk of
+# the styling, not a full from-scratch reskin. A small CSS snippet this
+# script fully owns (see $ObsidianSnippetFile in lib.ps1) only overrides
+# the handful of variables each installed theme leaves as a flavor/accent
+# knob -- Catppuccin's own ".theme-dark" selector already gives full Mocha
+# colors with zero configuration, for instance, it's only --ctp-accent
+# (normally picked via a class the "Style Settings" plugin would add,
+# which isn't installed) that needs pinning. Snippets always load after
+# the active theme, so these overrides reliably win the CSS cascade
+# without ever touching the installed theme's own file -- safe even if
+# that theme gets updated later. gruvbox and tokyonight need no overrides
+# at all (ObsidianSnippet is just '') since "Obsidian gruvbox" and
+# "Tokyo Night" are complete, self-contained palettes already. A theme
+# with no ObsidianCssTheme entry in the registry (no good match installed)
+# would skip entirely, same idea as an empty wallpaper folder -- not
+# currently the case for any of the 7 global themes below.
+function Set-ObsidianTheme {
+    param([string]$Theme, [string]$CssTheme, [string]$CssBlock, [string]$Mode)
+
+    if (-not $CssTheme) {
+        Write-Log "obsidian: no theme mapping for '$Theme', skipping"
+        return
+    }
+
+    $snippetDir = Split-Path $ObsidianSnippetFile -Parent
+    if (-not (Test-Path -LiteralPath $snippetDir)) {
+        New-Item -ItemType Directory -Path $snippetDir -Force | Out-Null
+    }
+    if (-not (Test-Path -LiteralPath $ObsidianSnippetFile)) {
+        Set-FileContent -Path $ObsidianSnippetFile -Content "/* BEGIN THEME COLORS */`n`n/* END THEME COLORS */"
+    }
+    Set-MarkedBlock -Path $ObsidianSnippetFile -BeginMarker '/* BEGIN THEME COLORS */' -EndMarker '/* END THEME COLORS */' -NewBlock $CssBlock
+
+    $json = Get-Content -LiteralPath $ObsidianAppearanceFile -Raw | ConvertFrom-Json
+    $json.theme = $Mode
+    if ($json.PSObject.Properties.Name -contains 'cssTheme') {
+        $json.cssTheme = $CssTheme
+    } else {
+        $json | Add-Member -NotePropertyName cssTheme -NotePropertyValue $CssTheme -Force
+    }
+    $snippets = @()
+    if ($json.PSObject.Properties.Name -contains 'enabledCssSnippets') {
+        $snippets = @($json.enabledCssSnippets)
+    }
+    if ($snippets -notcontains 'quickmenu-theme') {
+        $snippets += 'quickmenu-theme'
+    }
+    if ($json.PSObject.Properties.Name -contains 'enabledCssSnippets') {
+        $json.enabledCssSnippets = $snippets
+    } else {
+        $json | Add-Member -NotePropertyName enabledCssSnippets -NotePropertyValue $snippets -Force
+    }
+    Set-FileContent -Path $ObsidianAppearanceFile -Content ($json | ConvertTo-Json -Depth 5)
+
+    Write-Log "obsidian: applied '$Theme' (cssTheme=$CssTheme, mode=$Mode)"
+}
+
 # ---------------------------------------------------------------------------
-# Theme registry -- one source of truth for all 6 global themes. Adding a
+# Theme registry -- one source of truth for all 7 global themes. Adding a
 # new one: add an entry here, add it to the ValidateSet above, and add a
 # matching entry to GLOBAL_THEMES in quickmenu_light.ahk (plus its own
 # popup bg/fg/selBg/selFg/bezel there).
@@ -168,6 +227,14 @@ config.colors = {
 }
 config.window_background_opacity = 1.0
 '@
+        ObsidianCssTheme = 'Terminal'
+        ObsidianSnippet = @'
+body {
+	--the-color: #0F380F;
+	--the-background-color: #9BBC0F;
+}
+'@
+        ObsidianMode    = 'moonstone'
     }
     'amber'             = @{
         NvimColorscheme = 'amber'
@@ -248,6 +315,14 @@ config.colors = {
 }
 config.window_background_opacity = 1.0
 '@
+        ObsidianCssTheme = 'Terminal'
+        ObsidianSnippet = @'
+body {
+	--the-color: #FFB000;
+	--the-background-color: #1A0F00;
+}
+'@
+        ObsidianMode    = 'obsidian'
     }
     'green_term'        = @{
         NvimColorscheme = 'green_term'
@@ -329,6 +404,14 @@ config.colors = {
 }
 config.window_background_opacity = 1.0
 '@
+        ObsidianCssTheme = 'Terminal'
+        ObsidianSnippet = @'
+body {
+	--the-color: #33FF33;
+	--the-background-color: #0A0A0A;
+}
+'@
+        ObsidianMode    = 'obsidian'
     }
     'catppuccin-mocha' = @{
         NvimColorscheme = 'catppuccin-mocha'
@@ -408,6 +491,20 @@ config.colors = {
 }
 config.window_background_opacity = 1.0
 '@
+        ObsidianCssTheme = 'Catppuccin'
+        ObsidianSnippet = @'
+body {
+	/* The real Catppuccin theme's ".theme-dark" selector alone already
+	   gives full Mocha base colors, no class/plugin needed. --ctp-accent
+	   is the one exception: it only gets set by an accent-picker class
+	   (".ctp-accent-mauve" etc.), which needs the Style Settings plugin
+	   to ever apply -- not installed, so pin it here directly instead.
+	   Mauve rgb triplet is Catppuccin's own value, straight from
+	   theme.css, not invented. */
+	--ctp-accent: 203, 166, 247;
+}
+'@
+        ObsidianMode    = 'obsidian'
     }
     'gruvbox'           = @{
         NvimColorscheme = 'gruvbox'
@@ -489,6 +586,14 @@ config.colors = {
 }
 config.window_background_opacity = 1.0
 '@
+        ObsidianCssTheme = 'Obsidian gruvbox'
+        # Empty -- this theme is a complete, self-contained dark palette
+        # with no class/plugin-gated bits (unlike Catppuccin/Terminal), so
+        # there's nothing to override. Still needs to be a real Set-
+        # MarkedBlock call (not skipped) so the markers in the snippet
+        # file stay valid for the next theme that swaps back in.
+        ObsidianSnippet = ''
+        ObsidianMode    = 'obsidian'
     }
     'vague'             = @{
         NvimColorscheme = 'vague'
@@ -571,6 +676,119 @@ config.colors = {
 }
 config.window_background_opacity = 0.85
 '@
+        ObsidianCssTheme = 'Minimal'
+        ObsidianSnippet = @'
+body {
+	/* Minimal's own ".theme-dark" default is a neutral (zero-saturation)
+	   dark gray -- close enough to vague's own near-black neutral bg
+	   (#141415) that it's not worth overriding (Minimal's whole ethos is
+	   "plain and gets out of your way" anyway). Only the accent needs
+	   pinning: Minimal computes it from --accent-h/-s/-l (hsl()), default
+	   is a blue-gray (h:201 s:17% l:50%) -- converted from vague's real
+	   "hint" color #7e98e8 (precise RGB->HSL, not eyeballed: h=225.3
+	   s=69.7% l=70.2%, rounded) so Obsidian's accent matches the editor/
+	   terminal's.
+	*/
+	--accent-h: 225;
+	--accent-s: 70%;
+	--accent-l: 70%;
+}
+'@
+        ObsidianMode    = 'obsidian'
+    }
+    'tokyonight'        = @{
+        NvimColorscheme = 'tokyonight-night'
+        StarshipPalette = @'
+# Tokyo Night, "night" style (folke/tokyonight.nvim's own real palette --
+# colors/tokyonight-night.lua on top of colors/tokyonight-storm.lua for
+# the non-bg colors -- not invented). "night" chosen over the plugin's
+# own default "moon" style specifically because the already-installed
+# "Tokyo Night" Obsidian theme (themes/Tokyo Night/theme.css) hardcodes
+# exactly this variant's RGB triplets -- picking it keeps nvim/WezTerm/
+# Starship/Obsidian all pixel-consistent with zero manual color-math.
+[palettes.active]
+color_fg0 = '#0c0e14'   # bg_dark1 -- darkest, for the bright accent chips
+color_fg1 = '#c0caf5'   # fg
+color_bg1 = '#1a1b26'   # bg: matches the terminal background
+color_bg3 = '#292e42'   # bg_highlight
+color_blue = '#7aa2f7'
+color_aqua = '#7dcfff'  # cyan
+color_green = '#9ece6a'
+color_orange = '#ff9e64'
+color_purple = '#bb9af7' # magenta
+color_red = '#f7768e'
+color_yellow = '#e0af68'
+'@
+        WeztermColors   = @'
+-- Tokyo Night, "night" style -- ported 1:1 from tokyonight.nvim's own
+-- official extras/wezterm/tokyonight_night.toml (shipped by the plugin
+-- author, not reinvented).
+config.colors = {
+	foreground = "#c0caf5",
+	background = "#1a1b26",
+
+	cursor_bg = "#c0caf5",
+	cursor_fg = "#1a1b26",
+	cursor_border = "#c0caf5",
+
+	selection_fg = "#c0caf5",
+	selection_bg = "#283457",
+
+	split = "#7aa2f7",
+	visual_bell = "#e0af68",
+
+	ansi = {
+		"#15161e", -- black
+		"#f7768e", -- red
+		"#9ece6a", -- green
+		"#e0af68", -- yellow
+		"#7aa2f7", -- blue
+		"#bb9af7", -- magenta
+		"#7dcfff", -- cyan
+		"#a9b1d6", -- white
+	},
+	brights = {
+		"#414868", -- bright black
+		"#ff899d", -- bright red
+		"#9fe044", -- bright green
+		"#faba4a", -- bright yellow
+		"#8db0ff", -- bright blue
+		"#c7a9ff", -- bright magenta
+		"#a4daff", -- bright cyan
+		"#c0caf5", -- bright white
+	},
+
+	tab_bar = {
+		background = "#1a1b26",
+		active_tab = {
+			bg_color = "#7aa2f7",
+			fg_color = "#16161e",
+		},
+		inactive_tab = {
+			bg_color = "#292e42",
+			fg_color = "#545c7e",
+		},
+		inactive_tab_hover = {
+			bg_color = "#292e42",
+			fg_color = "#7aa2f7",
+		},
+		new_tab = {
+			bg_color = "#1a1b26",
+			fg_color = "#7aa2f7",
+		},
+	},
+}
+config.window_background_opacity = 1.0
+'@
+        ObsidianCssTheme = 'Tokyo Night'
+        # Empty -- the installed "Tokyo Night" theme's own ".theme-dark"
+        # block is a complete, self-contained palette with no class/
+        # plugin-gated bits, and its hardcoded RGB triplets already match
+        # tokyonight.nvim's real "night" style exactly (verified line by
+        # line against colors/tokyonight-storm.lua + -night.lua), so
+        # there's nothing left to override. Same pattern as gruvbox.
+        ObsidianSnippet = ''
+        ObsidianMode    = 'obsidian'
     }
 }
 
@@ -613,6 +831,12 @@ try {
     Set-ThemeWallpaper -Theme $Theme
 } catch {
     Write-Log "wallpaper update FAILED: $_"
+}
+
+try {
+    Set-ObsidianTheme -Theme $Theme -CssTheme $def.ObsidianCssTheme -CssBlock $def.ObsidianSnippet -Mode $def.ObsidianMode
+} catch {
+    Write-Log "obsidian update FAILED: $_"
 }
 
 Write-Log "done"

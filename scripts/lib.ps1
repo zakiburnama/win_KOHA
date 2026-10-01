@@ -23,6 +23,16 @@ $PendingRemindersFile = Join-Path $env:TEMP 'quickmenu-pending-reminders.txt'
 # it, these scripts only ever read.
 $SettingsFile = Join-Path (Split-Path $PSScriptRoot -Parent) 'quickmenu_settings.ini'
 
+# Obsidian vault theme sync -- the bulk of the styling comes from
+# switching "cssTheme" to one of the real, already-installed community
+# themes; this CSS snippet only overrides the handful of variables each
+# one leaves as a flavor/accent knob. See Set-ObsidianTheme in
+# apply-theme.ps1 and README.md ("Global themes") for why. Hardcoded
+# path, same "personal single-user tool" reasoning as $WallpapersRoot.
+$ObsidianVaultRoot = 'C:\Users\ThinkPad\Documents\Obsidian-Vault\.obsidian'
+$ObsidianAppearanceFile = Join-Path $ObsidianVaultRoot 'appearance.json'
+$ObsidianSnippetFile = Join-Path $ObsidianVaultRoot 'snippets\quickmenu-theme.css'
+
 # Prayer-time (waktu sholat) reminders -- Jakarta, via the myQuran API
 # (api.myquran.com, sourced from Kemenag RI). City is hardcoded rather than
 # a setting: same "personal single-user tool, hardcoding beats config

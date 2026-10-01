@@ -17,8 +17,9 @@ THEMES := Map(
     "catppuccin-mocha", { bg: "1E1E2E", fg: "CDD6F4", selBg: "CBA6F7", selFg: "1E1E2E", bezel: "11111B" },
     "gruvbox",  { bg: "282828", fg: "EBDBB2", selBg: "FE8019", selFg: "282828", bezel: "1D2021" },
     "vague",    { bg: "141415", fg: "CDCDCD", selBg: "6E94B2", selFg: "141415", bezel: "1C1C24" },
+    "tokyonight", { bg: "1A1B26", fg: "C0CAF5", selBg: "7AA2F7", selFg: "1A1B26", bezel: "0C0E14" },
 )
-THEME_NAMES := ["game_boy", "amber", "green_term", "catppuccin-mocha", "gruvbox", "vague"]
+THEME_NAMES := ["game_boy", "amber", "green_term", "catppuccin-mocha", "gruvbox", "vague", "tokyonight"]
 
 ; Every theme is "global" now -- picking any of them, besides restyling
 ; QuickMenu Light's own popup, also fans out via apply-theme.ps1 to
@@ -30,7 +31,7 @@ THEME_NAMES := ["game_boy", "amber", "green_term", "catppuccin-mocha", "gruvbox"
 ; the already-installed vague.nvim plugin as-is, and is the one theme
 ; that also makes WezTerm transparent (window_background_opacity in
 ; apply-theme.ps1's WeztermColors for it).
-GLOBAL_THEMES := Map("game_boy", true, "amber", true, "green_term", true, "catppuccin-mocha", true, "gruvbox", true, "vague", true)
+GLOBAL_THEMES := Map("game_boy", true, "amber", true, "green_term", true, "catppuccin-mocha", true, "gruvbox", true, "vague", true, "tokyonight", true)
 
 ; Tema aktif dibaca dari file settings (dibuat/diupdate otomatis lewat menu
 ; "Color Scheme" di bawah) -- kalau belum ada / rusak, fallback ke "amber".
