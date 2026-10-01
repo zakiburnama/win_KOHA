@@ -24,6 +24,9 @@ That's it — no runtime, no vendored library, no extra font files.
 ```
 quickmenu/
 ├── quickmenu_light.ahk        # the whole app: GUI, theming, keyboard handling, actions
+├── expense.ahk                # Pengeluaran logic, no GUI: parse input, categorize, write to the daily note
+├── expense_popup.ahk          # Pengeluaran input window (separate Gui, not a menu mode)
+├── tests/                     # console tests for expense*.ahk — see Pengeluaran below
 ├── QuickMenuLight.exe         # compiled build (see Running it below) — a genuine single file
 ├── quickmenu_settings.ini     # remembers your chosen color scheme — created on first use, gitignored
 ├── .gitignore
@@ -54,6 +57,7 @@ Most items are defined in `RunAction()` in [quickmenu_light.ahk](quickmenu_light
 | Open WezTerm | Launches WezTerm unelevated (`Run("wezterm-gui")` — not `wezterm.exe`, see [Gotchas](#gotchas) below) |
 | Open WezTerm (Admin) | Same, elevated (`Run("*RunAs wezterm-gui")`) — triggers a UAC prompt |
 | Obsidian | Launches Obsidian via its full path under `%LOCALAPPDATA%\Programs\Obsidian\` — it's a per-user Electron install, not on PATH (see [Gotchas](#gotchas)) |
+| Pengeluaran | Opens a small input window to log an expense into the Obsidian daily note — see [Pengeluaran](#pengeluaran-expense-logging) below |
 | Color Scheme | Opens the theme picker described below |
 | Next Wallpaper | Advances the wallpaper by one image, on demand — see [Wallpaper slideshow](#wallpaper-slideshow) below. Works regardless of the Wallpaper Slideshow toggle's state. Stays open (like Color Scheme) so you can press it repeatedly to cycle through several — no in-popup feedback, the wallpaper change itself (visible on the desktop around the popup) is the confirmation |
 | Wallpaper Slideshow (ON/OFF) | Toggles the automatic 30-min rotation on or off — see [Wallpaper slideshow](#wallpaper-slideshow) below. Label reflects current state; picking it flips and stays open, like Color Scheme |
@@ -64,6 +68,36 @@ Most items are defined in `RunAction()` in [quickmenu_light.ahk](quickmenu_light
 | Menu Settings | Always the last row, and can't be hidden itself. Opens a list of every item above with an `(ON)`/`(OFF)` label. Enter flips an item (the submenu stays open); `(OFF)` items disappear from the main menu. Escape goes back to the main menu with the changes applied. Stored as `HiddenMenus=` (item names joined by `\|`) in `quickmenu_settings.ini`. Empty or missing means everything is shown |
 
 To add or change an item, edit the `baseItems` array and the matching `case` in `RunAction()`.
+
+## Pengeluaran (expense logging)
+
+Logs an expense with minimal typing and files it into the Obsidian vault's daily note (`Z0010-daily\YYYY-MM-DD.md`), so the data stays plain markdown that Obsidian dashboards can query. Category / need-vs-want sorting happens in the background.
+
+**Input:** one line, `name amount` — e.g. `kopi susu jago 8k`. Several items at once: separate with a comma and a space (`ketoprak 15000, es teh 5000`). Amounts accept `8000`, `8k`, `8rb`, `15.000`, `1.5jt`, `Rp 15000`; the amount can also come first. Below it, **Tgl** defaults to today (type `kemarin`, `-2`, `2026-09-30`, `30-09-2026` or `30-09` for another day) and **Bayar** (payment method) defaults to whatever you used last (remembered as `ExpensePayment=` in `quickmenu_settings.ini`). A live preview shows how each item will be filed.
+
+| Key | Action |
+|---|---|
+| Enter | Save. If an item isn't recognized, ask for its category first (below) |
+| Ctrl+Enter | Review/change the category of **every** item first — a one-off correction, not learned |
+| Esc | Close (or, while picking a category, go back to the input without saving) |
+
+**Unknown items.** Rules live in the vault at `Z0014-financeules.md` (`keyword, keyword => category | need/want`, editable in Obsidian; longest keyword wins, except `hutang` rules which always win). When nothing matches, the window asks for a category: **1–9** = pangan, papan, sandang, transportasi, kesehatan, hiburan, sosial, infaq, investasi. Ambiguous categories (pangan, sandang) then ask **N**eed / **W**ant; the others imply it. The answer is appended to `rules.md` under "Dipelajari otomatis" (size/quantity words like `946ml` are dropped from the keyword), so the same item is never asked twice. **Enter** instead skips: the line is saved as `lainnya | want` with a `#review` tag and nothing is learned.
+
+**What gets written** — one line per transaction under `## 💸 Finance`, in Dataview inline-field form:
+
+```md
+- [expense] kopi susu jago [amount:: 8000] [category:: pangan] [type:: want] [payment:: shopeepay]
+```
+
+The older 5-lines-per-expense blocks are left untouched (the new line goes after them, separated by a blank line); the template's `expense:: null` placeholder is removed when there are no real expenses yet. A missing daily note is created from `Template Daily New`, and a note without a Finance section gets one before "What i Eat". Line endings (CRLF/LF) are preserved per file, and the write goes through a temp file + rename. If any part of the input can't be parsed, nothing is written. `hutang` (debt) is its own category with type `-` — it isn't counted as need or want.
+
+The vault path is hardcoded (`EXPENSE_VAULT` in [expense.ahk](expense.ahk)) — same single-user reasoning as the other hardcoded paths.
+
+**Tests.** `powershell -File testsun-tests.ps1` runs `expense_test.ahk` (parser, rules, writer) and `expense_popup_test.ahk` (the popup's state machine) against a throwaway copy of a few real daily notes — never the real vault. The popup test calls the handlers directly rather than sending keystrokes, so the physical hotkeys aren't covered; check those by hand. An optional `testsows.tsv` (name, category, type per line, gitignored since it's personal data) enables a regression check of `rules.md` against past expenses.
+
+### Dashboards (Obsidian)
+
+[obsidian/](obsidian/) holds the Dataview side: `expense-dashboard/view.js` plus two notes, *Dashboard Pengeluaran Bulanan* and *…Tahunan* (month picked via the `bulan:` property, year via `tahun:`; empty = current). They show total, need/want share, per category and payment method, per day/month, and an "efficiency" block (want share, small repeated purchases, costliest keywords, biggest transactions, items still needing `#review`; `hutang` is reported separately). The view reads the daily notes' text directly, so both the new one-line format and the old 5-line blocks work, and a block with a missing field can't shift the ones after it. `powershell -File obsidian\install.ps1` copies it into the vault (the notes are copied only if missing, so your `bulan:` edits survive); the repo copy is the source of truth. Requires Dataview with JavaScript queries enabled. `tests\dashboard_test.js` (Node, mock `dv`) tests it on synthetic notes.
 
 ## Color themes
 

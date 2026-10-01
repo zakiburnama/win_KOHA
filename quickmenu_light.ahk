@@ -1,5 +1,7 @@
 #Requires AutoHotkey v2.0
 #SingleInstance Force
+#Include expense.ahk
+#Include expense_popup.ahk
 
 ; QuickMenu Light -- versi native AHK murni, tanpa WebView2/HTML sama sekali.
 ; Tampil instan (tidak perlu nyalain proses browser terpisah). Tampilan retro
@@ -65,6 +67,7 @@ baseItems := [
   "Open WezTerm",
   "Open WezTerm (Admin)",
   "Obsidian",
+  "Pengeluaran",
   "Color Scheme",
   "Next Wallpaper",
   "Wallpaper Slideshow",
@@ -343,7 +346,15 @@ ShowMenu() {
                 SwitchMode("reminder")
             else if choice = MENU_SETTINGS_ITEM
                 SwitchMode("menus")
-            else if InStr(choice, "Wallpaper Slideshow") = 1
+            else if choice = "Pengeluaran" {
+                ; Window input terpisah (expense_popup.ahk) -- popup menu ini
+                ; nutup pada tombol apapun selain panah/Enter, gak bisa dipakai
+                ; ngetik. Destroy dulu dengan pola yang sama kayak RunAction()
+                ; (Closing := true dulu biar CloseOnDeactivate gak ExitApp()).
+                myGui.Closing := true
+                myGui.Destroy()
+                ShowExpensePopup(state.theme)
+            } else if InStr(choice, "Wallpaper Slideshow") = 1
                 ToggleWallpaperSlideshow()
             else if choice = "Next Wallpaper"
                 AdvanceWallpaper()

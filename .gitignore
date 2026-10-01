@@ -11,3 +11,6 @@ quickmenu_settings.ini
 # Claude Code local state
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
+
+# transaksi asli user (hanya nama item + kategori) buat tes regresi aturan -- data pribadi, jangan di-commit
+tests/rows.tsv
