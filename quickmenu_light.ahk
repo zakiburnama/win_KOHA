@@ -67,6 +67,7 @@ baseItems := [
   "Open WezTerm",
   "Open WezTerm (Admin)",
   "Obsidian",
+  "Claude Code",
   "Pengeluaran",
   "Color Scheme",
   "Next Wallpaper",
@@ -405,17 +406,20 @@ ShowMenu() {
         }
     }
 
-    ; Up/Down/Enter ditangkap manual (Text control bukan ListBox, tidak ada
-    ; navigasi bawaan) -- discope ke window ini saja lewat HotIfWinActive
-    ; supaya tidak mengganggu tombol yang sama di aplikasi lain.
+    ; Up/Down/Tab/Enter ditangkap manual (Text control bukan ListBox, tidak
+    ; ada navigasi bawaan) -- discope ke window ini saja lewat
+    ; HotIfWinActive supaya tidak mengganggu tombol yang sama di aplikasi
+    ; lain. Tab = item berikutnya, persis Down (termasuk lompat ke item
+    ; pertama dari item terakhir).
     HotIfWinActive("ahk_id " myGui.Hwnd)
     Hotkey("Up", (*) => MoveSelection(-1))
     Hotkey("Down", (*) => MoveSelection(1))
+    Hotkey("Tab", (*) => MoveSelection(1))
     Hotkey("Enter", (*) => OnEnter())
     Hotkey("NumpadEnter", (*) => OnEnter())
     HotIfWinActive()
 
-    ; Popup ala mobile/web: cuma Arrow Up/Down & Enter yang "diterima" input --
+    ; Popup ala mobile/web: cuma Arrow Up/Down, Tab & Enter yang "diterima" input --
     ; tombol lain apapun (Esc, tombol Windows, dll) atau klik/pindah fokus ke
     ; luar window langsung menutup menu. Berlaku di mode manapun.
     myGui.Closing := false
@@ -424,7 +428,7 @@ ShowMenu() {
     OnMessage(0x0006, CloseOnDeactivate) ; WM_ACTIVATE
 
     CloseOnOtherKey(wParam, lParam, msg, hwnd) {
-        static allowed := Map(38, 1, 40, 1, 13, 1)  ; VK_UP, VK_DOWN, VK_RETURN
+        static allowed := Map(38, 1, 40, 1, 13, 1, 9, 1)  ; VK_UP, VK_DOWN, VK_RETURN, VK_TAB
         if myGui.Closing || allowed.Has(wParam)
             return
         ; Escape (27) di submenu manapun (mode != "main") = mundur satu
@@ -488,6 +492,13 @@ RunAction(myGui, item) {
             DllCall("PowrProf\SetSuspendState", "Int", 0, "Int", 0, "Int", 0)
         case "Obsidian":
             Run(EnvGet("LOCALAPPDATA") "\Programs\Obsidian\Obsidian.exe")
+        case "Claude Code":
+            ; Aplikasi desktop Claude (Claude Code ada di tab "Code"-nya),
+            ; bukan CLI -- CLI `claude` gak terpasang di PATH. claude.exe di
+            ; root AnthropicClaude\ itu launcher Squirrel (sama kayak
+            ; Discord/Slack): path-nya tetap walau app update ke folder
+            ; app-x.y.z baru, jadi aman di-hardcode.
+            Run(EnvGet("LOCALAPPDATA") "\AnthropicClaude\claude.exe")
     }
     ExitApp()
 }

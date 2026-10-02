@@ -8,9 +8,9 @@ A rofi-style quick action popup for Windows, built entirely in native AutoHotkey
 
 - **AutoHotkey v2** creates a small, borderless, always-on-top window and draws the menu itself out of native `Text` controls — no ListBox, no browser engine, nothing else running in the background.
 - Retro pixel-art look: reverse-video selection (inverted background/text) plus a `>` cursor, like an old game or terminal menu. Colors are switchable — see [Color themes](#color-themes) below.
-- Up/Down/Enter are caught directly via `Hotkey`/`HotIfWinActive`, scoped to just this window.
+- Up/Down/Tab/Enter are caught directly via `Hotkey`/`HotIfWinActive`, scoped to just this window.
 - **Launched fresh on demand, with no persistent background process or hotkey listener.** `QuickMenuLight.exe` is launched by Lenovo Vantage's "User Defined Key" feature whenever the assigned key is pressed, shows the popup, runs the chosen action, and exits — nothing lingers in the background between presses.
-- Dismisses like a mobile/web popup: **only Up/Down/Enter are "accepted" input** — any other key or clicking outside the popup closes it without running an action. Escape is the one exception: inside the Color Scheme submenu it steps back to the main menu instead of closing outright; pressed again from the main menu, it closes like everything else.
+- Dismisses like a mobile/web popup: **only Up/Down/Tab/Enter are "accepted" input** (Tab = next item, same as Down) — any other key or clicking outside the popup closes it without running an action. Escape is the one exception: inside the Color Scheme submenu it steps back to the main menu instead of closing outright; pressed again from the main menu, it closes like everything else.
 
 ## Requirements
 
@@ -57,6 +57,7 @@ Most items are defined in `RunAction()` in [quickmenu_light.ahk](quickmenu_light
 | Open WezTerm | Launches WezTerm unelevated (`Run("wezterm-gui")` — not `wezterm.exe`, see [Gotchas](#gotchas) below) |
 | Open WezTerm (Admin) | Same, elevated (`Run("*RunAs wezterm-gui")`) — triggers a UAC prompt |
 | Obsidian | Launches Obsidian via its full path under `%LOCALAPPDATA%\Programs\Obsidian\` — it's a per-user Electron install, not on PATH (see [Gotchas](#gotchas)) |
+| Claude Code | Launches the Claude desktop app (Claude Code lives in its **Code** tab) via `%LOCALAPPDATA%\AnthropicClaude\claude.exe`, which is a Squirrel launcher stub. Its path stays the same across app updates, unlike the versioned `app-x.y.z\` folders next to it. If the app is already running, it should just bring the existing window to the front instead of opening a second one (untested) |
 | Pengeluaran | Opens a small input window to log an expense into the Obsidian daily note — see [Pengeluaran](#pengeluaran-expense-logging) below |
 | Color Scheme | Opens the theme picker described below |
 | Next Wallpaper | Advances the wallpaper by one image, on demand — see [Wallpaper slideshow](#wallpaper-slideshow) below. Works regardless of the Wallpaper Slideshow toggle's state. Stays open (like Color Scheme) so you can press it repeatedly to cycle through several — no in-popup feedback, the wallpaper change itself (visible on the desktop around the popup) is the confirmation |
@@ -77,9 +78,9 @@ Logs an expense with minimal typing and files it into the Obsidian vault's daily
 
 | Key | Action |
 |---|---|
-| Enter | Save. If an item isn't recognized, ask for its category first (below) |
+| Enter | Save. If an item isn't recognized, ask for its category first (below). The window then **stays open and resets** (empty input, date back to today, payment method kept) with a "Tersimpan …" message, so you can log several expenses in a row |
 | Ctrl+Enter | Review/change the category of **every** item first — a one-off correction, not learned |
-| Esc | Close (or, while picking a category, go back to the input without saving) |
+| Esc | Close — the only way to close the window (while picking a category it goes back to the input without saving instead) |
 
 **Unknown items.** Rules live in the vault at `Z0014-financeules.md` (`keyword, keyword => category | need/want`, editable in Obsidian; longest keyword wins, except `hutang` rules which always win). When nothing matches, the window asks for a category: **1–9** = pangan, papan, sandang, transportasi, kesehatan, hiburan, sosial, infaq, investasi. Ambiguous categories (pangan, sandang) then ask **N**eed / **W**ant; the others imply it. The answer is appended to `rules.md` under "Dipelajari otomatis" (size/quantity words like `946ml` are dropped from the keyword), so the same item is never asked twice. **Enter** instead skips: the line is saved as `lainnya | want` with a `#review` tag and nothing is learned.
 

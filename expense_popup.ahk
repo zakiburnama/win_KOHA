@@ -12,11 +12,14 @@
 ;               Ctrl+Enter = ubah kategori SEMUA item dulu (sekali pakai).
 ;   "pick-cat"  tombol 1-9 pilih kategori (Enter = lewati, simpan #review).
 ;   "pick-type" cuma buat kategori yang ambigu (pangan/sandang): N / W.
-;   "done"      sebentar nampilin "tersimpan", lalu tutup sendiri.
+;             Setelah tersimpan, window TIDAK menutup: kotak teks
+;             dikosongkan, tanggal balik ke hari ini, metode bayar tetap
+;             yang terakhir, dan pesan "Tersimpan ..." tampil di pratinjau
+;             sampai mulai mengetik lagi -- jadi bisa input berulang kali.
 ; Esc di tahap pick = balik ke input (batal, belum ada yang ditulis);
-; Esc di input = tutup. Gak nutup pas klik di luar window (beda dari menu
-; utama) -- teks yang sudah diketik gak hilang kalau pindah window buat
-; ngecek harga.
+; Esc di input = tutup (satu-satunya cara menutup). Gak nutup pas klik di
+; luar window (beda dari menu utama) -- teks yang sudah diketik gak hilang
+; kalau pindah window buat ngecek harga.
 ;
 ; opts (opsional, dipakai tes): { vault, settingsFile, onClose, onSaved }.
 ; Return object berisi kontrol & handler supaya tes bisa nyetir popup ini
@@ -34,7 +37,6 @@ ShowExpensePopup(theme, opts := "") {
     pad := 8
     w := 560
     innerW := w - margin * 2
-    rules := LoadExpenseRules(vault "\" EXPENSE_RULES_REL)
 
     g := Gui("+AlwaysOnTop -Caption +ToolWindow", "QuickMenu Pengeluaran")
     g.BackColor := theme.bezel
@@ -88,9 +90,14 @@ ShowExpensePopup(theme, opts := "") {
     previewCtl := g.Add("Text", "x" margin + pad " y" y3 + pad " w" textW " h" previewH " Background" theme.bg, "")
     winH := y3 + previewH + pad * 2 + margin
 
+    ; rules di state (bukan variabel lokal biasa): window ini sekarang tetap
+    ; terbuka setelah simpan, jadi aturan yang BARU dipelajari harus
+    ; di-reload supaya input berikutnya gak menanyakan item yang sama lagi
+    ; -- dan menulis-ulang property object aman dari dalam closure.
     state := {
         stage: "input", entries: [], groups: [], pos: 1, forced: false,
-        overrides: Map(), dateStr: "", payment: "", chosenCat: ""
+        overrides: Map(), dateStr: "", payment: "", chosenCat: "",
+        rules: LoadExpenseRules(vault "\" EXPENSE_RULES_REL)
     }
 
     SetPreview(lines) {
@@ -105,7 +112,7 @@ ShowExpensePopup(theme, opts := "") {
                 "", "Enter simpan   Ctrl+Enter ubah kategori   Esc tutup"])
             return
         }
-        lines := ExpensePreviewLines(rules, parsed)
+        lines := ExpensePreviewLines(state.rules, parsed)
         total := 0
         for e in parsed.entries
             total += e.amount
@@ -170,7 +177,7 @@ ShowExpensePopup(theme, opts := "") {
                 state.groups.Push({ name: e.name, amount: e.amount, idxs: [i] })
                 continue
             }
-            if ClassifyExpense(rules, e.name).known
+            if ClassifyExpense(state.rules, e.name).known
                 continue
             key := StrLower(e.name)
             if seen.Has(key)
@@ -191,7 +198,7 @@ ShowExpensePopup(theme, opts := "") {
     ShowPickCat() {
         state.stage := "pick-cat"
         grp := state.groups[state.pos]
-        guess := ClassifyExpense(rules, grp.name)
+        guess := ClassifyExpense(state.rules, grp.name)
         lines := ["[" state.pos "/" state.groups.Length "] " grp.name "  " FormatRupiah(grp.amount)]
         row := ""
         for i, c in EXPENSE_PICK_CATEGORIES {
@@ -250,10 +257,11 @@ ShowExpensePopup(theme, opts := "") {
             return
         }
         try IniWrite(state.payment, settingsFile, "Settings", "ExpensePayment")
+        if result.learned.Length
+            state.rules := LoadExpenseRules(vault "\" EXPENSE_RULES_REL)
         total := 0
         for e in state.entries
             total += e.amount
-        state.stage := "done"
         lines := ["Tersimpan " result.saved " transaksi -> " state.dateStr ".md", FormatRupiah(total) " | " state.payment]
         if result.unknown.Length
             lines.Push("#review: " result.unknown.Length " item (cek di Obsidian)")
@@ -261,10 +269,26 @@ ShowExpensePopup(theme, opts := "") {
             lines.Push("aturan baru: " result.learned.Length " (rules.md)")
         if result.learnError != ""
             lines.Push("! aturan gagal disimpan: " result.learnError)
+        lines.Push("")
+        lines.Push("Siap input berikutnya   Esc tutup")
+        ResetForm()
         SetPreview(lines)
         if IsObject(onSaved)
             onSaved(result)
-        SetTimer(Close, -900)
+    }
+
+    ; Balik ke kondisi awal buat input berikutnya. Pesan "Tersimpan" di-set
+    ; SESUDAH ini (lihat DoSave). Urutan itu sengaja: kalau suatu saat
+    ; mengisi Edit lewat kode ikut memicu event Change -> ShowInputPreview(),
+    ; pesannya gak tertimpa pratinjau kosong.
+    ResetForm() {
+        state.stage := "input"
+        state.entries := []
+        state.overrides := Map()
+        SetEditsEnabled(true)
+        inputCtl.Value := ""
+        dateCtl.Value := FormatTime(A_Now, "yyyy-MM-dd")
+        inputCtl.Focus()
     }
 
     Close(*) {
@@ -321,7 +345,7 @@ ShowExpensePopup(theme, opts := "") {
     ; Shift/Ctrl lagi ditekan, jadi huruf kapital tetap kena. Tombol
     ; pilihan (1-9/N/W/Backspace) cuma aktif di tahap pick -- di tahap
     ; input angka & huruf harus tetap bisa diketik ke kotak teks.
-    inWin := (*) => state.stage != "done" && WinActive("ahk_id " g.Hwnd)
+    inWin := (*) => WinActive("ahk_id " g.Hwnd)
     inPick := (*) => (state.stage = "pick-cat" || state.stage = "pick-type") && WinActive("ahk_id " g.Hwnd)
     HotIf(inWin)
     Hotkey("*Enter", (*) => GetKeyState("Ctrl") ? OnCtrlEnter() : OnEnter())
@@ -340,5 +364,5 @@ ShowExpensePopup(theme, opts := "") {
 
     return { gui: g, state: state, input: inputCtl, date: dateCtl, pay: payCtl, preview: previewCtl,
         Enter: (this) => OnEnter(), CtrlEnter: (this) => OnCtrlEnter(), Esc: (this) => OnEscape(),
-        Key: (this, k) => OnKey(k) }
+        Key: (this, k) => OnKey(k), Changed: (this) => OnChange() }
 }

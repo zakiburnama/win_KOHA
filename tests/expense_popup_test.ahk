@@ -41,6 +41,9 @@ Open(extra := "") {
     opts := { vault: vault, settingsFile: SETTINGS_FILE, onClose: (*) => closed++ }
     return ShowExpensePopup(theme, opts)
 }
+; Habis simpan popup TIDAK menutup: kembali ke tahap input dengan kotak
+; teks kosong, edit aktif lagi, dan pesan "Tersimpan" di pratinjau.
+Saved(ui) => ui.state.stage = "input" && ui.input.Value = "" && ui.input.Enabled && InStr(ui.preview.Text, "Tersimpan")
 Fill(ui, text, date := "2026-08-31", pay := "gopay") {
     ui.input.Value := text
     ui.date.Value := date
@@ -73,7 +76,7 @@ Check("pangan ambigu -> minta type", ui.state.stage = "pick-type" && InStr(ui.pr
 ui.Key("Backspace")
 Check("backspace balik ke pick-cat", ui.state.stage = "pick-cat")
 ui.Key("1"), ui.Key("w")
-Check("selesai -> done", ui.state.stage = "done" && InStr(ui.preview.Text, "Tersimpan 2 transaksi -> 2026-08-31.md") && InStr(ui.preview.Text, "aturan baru: 1"), ui.preview.Text)
+Check("selesai -> tersimpan & form di-reset", Saved(ui) && InStr(ui.preview.Text, "Tersimpan 2 transaksi -> 2026-08-31.md") && InStr(ui.preview.Text, "aturan baru: 1"), ui.preview.Text)
 note := ReadRaw(daily "2026-08-31.md")
 Check("tertulis: kopi dari rules", InStr(note, "- [expense] kopi susu jago [amount:: 8000] [category:: pangan] [type:: want] [payment:: gopay]"))
 Check("tertulis: seblak hasil pilihan, tanpa #review", InStr(note, "- [expense] seblak mang ujang [amount:: 15000] [category:: pangan] [type:: want] [payment:: gopay]`n") && !InStr(note, "seblak mang ujang [amount:: 15000] [category:: pangan] [type:: want] [payment:: gopay] #review"))
@@ -86,7 +89,7 @@ ui := Open()
 Check("payment default = terakhir dipakai", ui.pay.Value = "gopay")
 Fill(ui, "seblak mang ujang pedas 17000")
 ui.Enter()
-Check("sudah dikenal -> langsung done", ui.state.stage = "done")
+Check("sudah dikenal -> langsung tersimpan", Saved(ui))
 ui.gui.Destroy()
 
 ; ---- 3. Enter di pick-cat = lewati -> lainnya + #review, tanpa aturan ----
@@ -94,7 +97,7 @@ ui := Open()
 rulesBefore := ReadRaw(rulesPath)
 Fill(ui, "barang misterius 5000")
 ui.Enter(), ui.Enter()
-Check("lewati -> done", ui.state.stage = "done" && InStr(ui.preview.Text, "#review: 1"), ui.preview.Text)
+Check("lewati -> tersimpan", Saved(ui) && InStr(ui.preview.Text, "#review: 1"), ui.preview.Text)
 Check("lewati: tag #review", InStr(ReadRaw(daily "2026-08-31.md"), "barang misterius [amount:: 5000] [category:: lainnya] [type:: want] [payment:: gopay] #review"))
 Check("lewati: aturan gak berubah", ReadRaw(rulesPath) = rulesBefore)
 ui.gui.Destroy()
@@ -103,7 +106,7 @@ ui.gui.Destroy()
 ui := Open()
 Fill(ui, "keset kamar mandi 25000")
 ui.Enter(), ui.Key("2")
-Check("papan -> langsung done, need", ui.state.stage = "done" && InStr(ReadRaw(daily "2026-08-31.md"), "keset kamar mandi [amount:: 25000] [category:: papan] [type:: need]"))
+Check("papan -> langsung tersimpan, need", Saved(ui) && InStr(ReadRaw(daily "2026-08-31.md"), "keset kamar mandi [amount:: 25000] [category:: papan] [type:: need]"))
 ui.gui.Destroy()
 
 ; ---- 5. Esc di pick = batal, belum ada yang ditulis ----
@@ -125,7 +128,7 @@ Fill(ui, "kopi susu jago 9000")
 ui.CtrlEnter()
 Check("ctrl+enter -> pick-cat meski sudah dikenal", ui.state.stage = "pick-cat" && InStr(ui.preview.Text, "pakai tebakan (pangan/want)"), ui.preview.Text)
 ui.Key("6")
-Check("hiburan -> want, tersimpan", ui.state.stage = "done" && InStr(ReadRaw(daily "2026-08-31.md"), "kopi susu jago [amount:: 9000] [category:: hiburan] [type:: want]"))
+Check("hiburan -> want, tersimpan", Saved(ui) && InStr(ReadRaw(daily "2026-08-31.md"), "kopi susu jago [amount:: 9000] [category:: hiburan] [type:: want]"))
 Check("koreksi sekali pakai: rules.md gak berubah", ReadRaw(rulesPath) = rulesBefore)
 ui.gui.Destroy()
 
@@ -133,7 +136,7 @@ ui.gui.Destroy()
 ui := Open()
 Fill(ui, "le mineral 6000")
 ui.CtrlEnter(), ui.Enter()
-Check("forced + Enter = pakai tebakan", ui.state.stage = "done" && InStr(ReadRaw(daily "2026-08-31.md"), "le mineral [amount:: 6000] [category:: pangan] [type:: need]"))
+Check("forced + Enter = pakai tebakan", Saved(ui) && InStr(ReadRaw(daily "2026-08-31.md"), "le mineral [amount:: 6000] [category:: pangan] [type:: need]"))
 ui.gui.Destroy()
 
 ; ---- 8. nama yang sama dua kali ditanya sekali ----
@@ -169,8 +172,40 @@ ui := Open()
 Fill(ui, "parkir 2000", "kemarin")
 ui.Enter()
 yesterday := FormatTime(DateAdd(A_Now, -1, "Days"), "yyyy-MM-dd")
-Check("kemarin -> file kemarin dibuat dari template", ui.state.stage = "done" && InStr(ui.preview.Text, yesterday ".md"), ui.preview.Text)
+Check("kemarin -> file kemarin dibuat dari template", Saved(ui) && InStr(ui.preview.Text, yesterday ".md"), ui.preview.Text)
 Check("note kemarin ada transaksinya", FileExist(daily yesterday ".md") && InStr(ReadRaw(daily yesterday ".md"), "[expense] parkir [amount:: 2000] [category:: transportasi]"))
+ui.gui.Destroy()
+
+; ---- 11. input berulang: habis simpan popup tetap terbuka & ke-reset ----
+ui := Open()
+today := FormatTime(A_Now, "yyyy-MM-dd")
+Fill(ui, "le mineral 20000", "kemarin", "cash")
+ui.Enter()
+Check("reset: tetap terbuka, tidak ada onClose", Saved(ui) && closed = 0)
+Check("reset: tanggal balik ke hari ini", ui.date.Value = today, ui.date.Value)
+Check("reset: metode bayar tetap yang terakhir", ui.pay.Value = "cash")
+Check("reset: pesan siap input berikutnya", InStr(ui.preview.Text, "Siap input berikutnya") && InStr(ui.preview.Text, "Esc tutup"), ui.preview.Text)
+Sleep(1200)   ; dulu popup menutup sendiri ~0,9 dtk setelah simpan -- sekarang gak boleh
+Check("reset: gak menutup sendiri", closed = 0)
+ui.input.Value := "kopi 5000"
+ui.Changed()   ; di AHK v2 mengisi Value lewat kode TIDAK memicu event Change -- ketikan asli memicunya
+Check("reset: mulai mengetik -> pratinjau normal", ui.state.stage = "input" && !InStr(ui.preview.Text, "Tersimpan") && InStr(ui.preview.Text, "kopi"), ui.preview.Text)
+ui.date.Value := "2026-08-31"
+ui.Enter()
+Check("input kedua juga tersimpan & ke-reset", Saved(ui) && closed = 0)
+ui.Esc()
+Check("Esc setelah simpan menutup", closed = 1)
+ui.gui.Destroy()
+Check("dua input berurutan masuk ke note masing-masing", InStr(ReadRaw(daily FormatTime(DateAdd(A_Now, -1, "Days"), "yyyy-MM-dd") ".md"), "[expense] le mineral [amount:: 20000]") && InStr(ReadRaw(daily "2026-08-31.md"), "[expense] kopi [amount:: 5000]"))
+
+; ---- 12. input berulang lewat jalur pilih kategori (item belum dikenal) ----
+ui := Open()
+Fill(ui, "gado gado 12000")
+ui.Enter(), ui.Key("1"), ui.Key("n")
+Check("setelah pick -> tersimpan, form aktif lagi", Saved(ui) && closed = 0)
+Fill(ui, "gado gado 13000")
+ui.Enter()
+Check("item yang baru dipelajari tidak ditanya lagi saat input berulang", Saved(ui) && InStr(ReadRaw(daily "2026-08-31.md"), "gado gado [amount:: 13000] [category:: pangan] [type:: need]"))
 ui.gui.Destroy()
 
 Out(passed " lulus, " failed " gagal")
