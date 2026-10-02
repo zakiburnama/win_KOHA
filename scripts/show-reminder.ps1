@@ -18,7 +18,7 @@ $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\lib.ps1"
 
 try {
-    Show-Notification -Title 'QuickMenu Light' -Text "Reminder: $Minutes minute(s) is up." -Beep
+    Show-Notification -Title 'KOHA' -Text "Reminder: $Minutes minute(s) is up." -Beep
     Write-Log "reminder: fired ($Minutes min, task '$TaskName')"
 } catch {
     Write-Log "reminder fire FAILED: $_"

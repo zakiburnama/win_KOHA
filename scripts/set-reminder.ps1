@@ -1,6 +1,6 @@
 <#
     Schedules a one-shot reminder N minutes from now. Triggered by picking a
-    duration from QuickMenu Light's Reminder submenu.
+    duration from KOHA's Reminder submenu.
 
     Registers a ONE-TIME Task Scheduler task (self-deleting once it fires,
     see show-reminder.ps1) rather than a script that Start-Sleep's for the
@@ -23,7 +23,7 @@ $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\lib.ps1"
 
 $fireAt = (Get-Date).AddMinutes($Minutes)
-$taskName = "QuickMenu Light - Reminder $(Get-Date -Format 'yyyyMMddHHmmssfff')"
+$taskName = "KOHA - Reminder $(Get-Date -Format 'yyyyMMddHHmmssfff')"
 $launcherPath = Join-Path $PSScriptRoot 'run-hidden.vbs'
 
 try {
@@ -39,12 +39,12 @@ try {
         -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 
     Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings `
-        -Description "One-shot QuickMenu Light reminder ($Minutes min), fires at $fireAt then deletes itself." `
+        -Description "One-shot KOHA reminder ($Minutes min), fires at $fireAt then deletes itself." `
         -Force | Out-Null
 
     Write-Log "reminder: scheduled '$taskName' for $fireAt ($Minutes min)"
 
-    Show-Notification -Title 'QuickMenu Light' `
+    Show-Notification -Title 'KOHA' `
         -Text "Reminder set for $($fireAt.ToString('h:mm tt')) ($Minutes min)"
 } catch {
     Write-Log "reminder scheduling FAILED: $_"

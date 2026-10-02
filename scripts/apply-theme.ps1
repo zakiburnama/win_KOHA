@@ -1,19 +1,19 @@
 <#
-    Applies a canonical global color theme across the tools QuickMenu Light's
+    Applies a canonical global color theme across the tools KOHA's
     "Color Scheme" submenu can reach beyond its own popup: Neovim, WezTerm,
     Starship, the desktop wallpaper, and an Obsidian vault. Triggered by
-    quickmenu_light.ahk (Run(), hidden window) when the chosen theme is one
+    koha.ahk (Run(), hidden window) when the chosen theme is one
     of the "global" entries in GLOBAL_THEMES -- see README.md for the full
     picture.
 
     Runs hidden with no console, so failures are logged (not shown) to
-    %TEMP%\quickmenu-apply-theme.log rather than swallowed silently.
+    %TEMP%\koha-apply-theme.log rather than swallowed silently.
 
     Each target file keeps its own line-ending convention (wezterm.lua is
     LF, starship.toml is CRLF) -- Set-MarkedBlock normalizes to LF for the
     regex swap, then restores whichever style the file already used.
 
-    Also records the chosen theme to %TEMP%\quickmenu-active-theme.txt --
+    Also records the chosen theme to %TEMP%\koha-active-theme.txt --
     rotate-wallpaper.ps1 (run periodically via Task Scheduler, see
     install-wallpaper-rotation.ps1) reads that to know which theme's
     wallpaper folder to keep cycling through between theme switches.
@@ -124,8 +124,8 @@ function Set-ObsidianTheme {
     if ($json.PSObject.Properties.Name -contains 'enabledCssSnippets') {
         $snippets = @($json.enabledCssSnippets)
     }
-    if ($snippets -notcontains 'quickmenu-theme') {
-        $snippets += 'quickmenu-theme'
+    if ($snippets -notcontains 'koha-theme') {
+        $snippets += 'koha-theme'
     }
     if ($json.PSObject.Properties.Name -contains 'enabledCssSnippets') {
         $json.enabledCssSnippets = $snippets
@@ -140,14 +140,14 @@ function Set-ObsidianTheme {
 # ---------------------------------------------------------------------------
 # Theme registry -- one source of truth for all 7 global themes. Adding a
 # new one: add an entry here, add it to the ValidateSet above, and add a
-# matching entry to GLOBAL_THEMES in quickmenu_light.ahk (plus its own
+# matching entry to GLOBAL_THEMES in koha.ahk (plus its own
 # popup bg/fg/selBg/selFg/bezel there).
 # ---------------------------------------------------------------------------
 $Themes = @{
     'game_boy'          = @{
         NvimColorscheme = 'game_boy'
         StarshipPalette = @'
-# Classic DMG Game Boy 4-shade green -- matches QuickMenu Light's own
+# Classic DMG Game Boy 4-shade green -- matches KOHA's own
 # game_boy theme and colors/game_boy.lua 1:1. Unlike the other themes
 # here this is a LIGHT palette (the real DMG screen is light with dark
 # pixels), so color_fg0/color_fg1 are swapped relative to the dark themes:
@@ -239,7 +239,7 @@ body {
     'amber'             = @{
         NvimColorscheme = 'amber'
         StarshipPalette = @'
-# Amber CRT terminal -- matches QuickMenu Light's own amber theme and
+# Amber CRT terminal -- matches KOHA's own amber theme and
 # colors/amber.lua 1:1. Standard dark-theme polarity: color_fg0 is dark
 # (for the bright amber accent chips), color_fg1 is light amber (for the
 # dark bg1/bg3 "fade toward terminal background" chips).
@@ -327,7 +327,7 @@ body {
     'green_term'        = @{
         NvimColorscheme = 'green_term'
         StarshipPalette = @'
-# Phosphor-green CRT terminal -- matches QuickMenu Light's own green_term
+# Phosphor-green CRT terminal -- matches KOHA's own green_term
 # theme and colors/green_term.lua 1:1. Standard dark-theme polarity:
 # color_fg0 is dark (for the bright green accent chips), color_fg1 is
 # light green (for the dark bg1/bg3 "fade toward terminal background"

@@ -1,11 +1,11 @@
 <#
     Reconciles today's prayer-reminder Scheduled Tasks with current
-    settings (quickmenu_settings.ini: SholatEnabled master toggle + 5
+    settings (koha_settings.ini: SholatEnabled master toggle + 5
     individual SholatSubuh/SholatDzuhur/SholatAshar/SholatMaghrib/
     SholatIsya toggles, all read via Get-IniValue in lib.ps1) and today's
     actual prayer times (myQuran API).
 
-    Idempotent -- always starts by cancelling every "QuickMenu Light -
+    Idempotent -- always starts by cancelling every "KOHA -
     Sholat * <today>" task, then re-registers one-time tasks only for
     prayers that are (a) master + individually enabled and (b) haven't
     already happened today. Safe to call repeatedly; the AHK side does,
@@ -14,7 +14,7 @@
     Called two ways:
     - Daily at 00:05, via a recurring Scheduled Task (install-prayer-
       schedule.ps1 registers it) -- sets up each new day's reminders.
-    - Immediately (hidden, non-blocking) from quickmenu_light.ahk whenever
+    - Immediately (hidden, non-blocking) from koha.ahk whenever
       a Waktu Sholat toggle is flipped, so the change takes effect for
       the rest of TODAY, not just starting tomorrow.
 #>
@@ -23,7 +23,7 @@ $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\lib.ps1"
 
 $today = Get-Date -Format 'yyyy-MM-dd'
-$taskPrefix = 'QuickMenu Light - Sholat'
+$taskPrefix = 'KOHA - Sholat'
 
 # Idempotent re-sync, not additive -- always clear today's tasks first,
 # regardless of what gets (re-)registered below.
@@ -72,7 +72,7 @@ foreach ($key in $PrayerDisplayNames.Keys) {
     $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 
     Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings `
-        -Description "One-shot QuickMenu Light prayer reminder ($name, $timeStr)." -Force | Out-Null
+        -Description "One-shot KOHA prayer reminder ($name, $timeStr)." -Force | Out-Null
 
     $scheduledCount++
     Write-Log "sholat: scheduled $name at $timeStr"

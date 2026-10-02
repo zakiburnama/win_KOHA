@@ -1,11 +1,13 @@
 # Build output
 QuickMenu.exe
 QuickMenuLight.exe
+KOHA.exe
 
 # WebView2 runtime profile/cache (generated on first run)
 WebView2Data/
 
-# QuickMenu Light's persisted color-scheme choice (generated on first run)
+# KOHA's persisted settings (generated on first run); quickmenu_settings.ini is the pre-rename name
+koha_settings.ini
 quickmenu_settings.ini
 
 # Claude Code local state

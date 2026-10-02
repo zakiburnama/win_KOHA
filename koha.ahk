@@ -3,11 +3,12 @@
 #Include expense.ahk
 #Include expense_popup.ahk
 
-; QuickMenu Light -- versi native AHK murni, tanpa WebView2/HTML sama sekali.
+; KOHA -- versi native AHK murni, tanpa WebView2/HTML sama sekali.
 ; Tampil instan (tidak perlu nyalain proses browser terpisah). Tampilan retro
 ; pixel-art dengan font raster "Terminal" (bawaan Windows, tanpa file
 ; tambahan) dan seleksi warna terbalik + kursor ">" ala menu game jadul.
-; Fungsinya identik dengan quickmenu.ahk.
+; (Versi WebView2 yang lebih berat ada di branch development, dengan nama
+; lamanya, QuickMenu.)
 
 ; bg/fg = warna normal (background/teks); selBg/selFg = warna item terpilih
 ; (biasanya kebalikan dari bg/fg -- "reverse video" ala terminal jadul);
@@ -24,7 +25,7 @@ THEMES := Map(
 THEME_NAMES := ["game_boy", "amber", "green_term", "catppuccin-mocha", "gruvbox", "vague", "tokyonight"]
 
 ; Every theme is "global" now -- picking any of them, besides restyling
-; QuickMenu Light's own popup, also fans out via apply-theme.ps1 to
+; KOHA's own popup, also fans out via apply-theme.ps1 to
 ; Neovim/WezTerm/Starship/wallpaper (see README.md). Custom minimal
 ; colorschemes were hand-written for game_boy/amber/green_term (no ready-
 ; made Neovim plugin matches these retro-monochrome looks closely enough,
@@ -37,7 +38,7 @@ GLOBAL_THEMES := Map("game_boy", true, "amber", true, "green_term", true, "catpp
 
 ; Tema aktif dibaca dari file settings (dibuat/diupdate otomatis lewat menu
 ; "Color Scheme" di bawah) -- kalau belum ada / rusak, fallback ke "amber".
-SETTINGS_FILE := A_ScriptDir "\quickmenu_settings.ini"
+SETTINGS_FILE := A_ScriptDir "\koha_settings.ini"
 ACTIVE_THEME := IniRead(SETTINGS_FILE, "Settings", "Theme", "amber")
 if !THEMES.Has(ACTIVE_THEME)
     ACTIVE_THEME := "amber"
@@ -46,7 +47,7 @@ if !THEMES.Has(ACTIVE_THEME)
 ; Task-nya sendiri) -- gak ngaruh ke wallpaper pas ganti tema atau pas klik
 ; "Next Wallpaper" manual, dua-duanya jalur kode terpisah. Baca dari INI
 ; biar render menu instan (gak perlu query Task Scheduler yang lebih
-; lambat tiap buka QuickMenu) -- lihat ToggleWallpaperSlideshow().
+; lambat tiap buka KOHA) -- lihat ToggleWallpaperSlideshow().
 WALLPAPER_SLIDESHOW_ENABLED := IniRead(SETTINGS_FILE, "Settings", "WallpaperSlideshow", "1") = "1"
 
 ; Durasi tetap (bukan input teks bebas) -- konsisten sama gaya keyboard-only
@@ -80,7 +81,7 @@ baseItems := [
 
 ; Item terakhir menu utama, SELALU tampil (gak ikut daftar toggle-nya
 ; sendiri) -- kalau bisa di-OFF-in juga, sekali semua item disembunyiin
-; gak ada jalan balik lagi dari dalam QuickMenu selain edit INI manual.
+; gak ada jalan balik lagi dari dalam KOHA selain edit INI manual.
 MENU_SETTINGS_ITEM := "Menu Settings"
 
 ; Item baseItems yang disembunyiin dari menu utama, disimpan sebagai satu
@@ -105,7 +106,7 @@ ShowMenu() {
     ; +1 = baris "Menu Settings" di bawah baseItems (lihat CurrentList()).
     maxRows := Max(baseItems.Length + 1, THEME_NAMES.Length, REMINDER_OPTIONS.Length)
 
-    myGui := Gui("+AlwaysOnTop -Caption +ToolWindow", "QuickMenu Light")
+    myGui := Gui("+AlwaysOnTop -Caption +ToolWindow", "KOHA")
     myGui.OnEvent("Close", (*) => ExitApp())
 
     ; state.mode "main" = menu utama, "theme" = submenu Color Scheme,
@@ -235,7 +236,7 @@ ShowMenu() {
     ; nentuin tinggi window & isi baris-barisnya, jadi gak bisa async kayak
     ; fan-out tema/wallpaper. Konsekuensinya: buka submenu ini ada jeda
     ; kecil (proses powershell.exe baru nyala), beda dari bagian lain
-    ; QuickMenu yang instan.
+    ; KOHA yang instan.
     SwitchToCancelMode() {
         state.cancelList := GetPendingReminders()
         SwitchMode("cancel")
@@ -297,7 +298,7 @@ ShowMenu() {
 
     ; Flip + tetap kebuka (kayak Color Scheme) -- bukan RunAction, biar
     ; kamu bisa langsung lihat label-nya berubah tanpa harus buka-tutup
-    ; QuickMenu ulang buat konfirmasi tersimpan. Nulis ke INI dulu (sumber
+    ; KOHA ulang buat konfirmasi tersimpan. Nulis ke INI dulu (sumber
     ; kebenaran buat render menu berikutnya, instan) baru fire-and-forget
     ; toggle-wallpaper-slideshow.ps1 buat Enable/Disable Scheduled Task-nya
     ; yang beneran -- INI dan Scheduled Task jadi 2 hal yang disinkronkan
@@ -313,7 +314,7 @@ ShowMenu() {
     }
 
     ; Tetap kebuka (bukan RunAction) -- biar bisa dipencet berkali-kali buat
-    ; "scroll" ganti-ganti wallpaper tanpa harus buka-tutup QuickMenu tiap
+    ; "scroll" ganti-ganti wallpaper tanpa harus buka-tutup KOHA tiap
     ; kali. Gak ada state di popup ini sendiri yang perlu di-Render() ulang
     ; -- feedback-nya keliatan langsung di wallpaper desktop di belakang
     ; popup, bukan di dalam popup-nya.
@@ -410,16 +411,17 @@ ShowMenu() {
     ; ada navigasi bawaan) -- discope ke window ini saja lewat
     ; HotIfWinActive supaya tidak mengganggu tombol yang sama di aplikasi
     ; lain. Tab = item berikutnya, persis Down (termasuk lompat ke item
-    ; pertama dari item terakhir).
+    ; pertama dari item terakhir); Shift+Tab = item sebelumnya, persis Up.
     HotIfWinActive("ahk_id " myGui.Hwnd)
     Hotkey("Up", (*) => MoveSelection(-1))
     Hotkey("Down", (*) => MoveSelection(1))
     Hotkey("Tab", (*) => MoveSelection(1))
+    Hotkey("+Tab", (*) => MoveSelection(-1))
     Hotkey("Enter", (*) => OnEnter())
     Hotkey("NumpadEnter", (*) => OnEnter())
     HotIfWinActive()
 
-    ; Popup ala mobile/web: cuma Arrow Up/Down, Tab & Enter yang "diterima" input --
+    ; Popup ala mobile/web: cuma Arrow Up/Down, Tab (+Shift) & Enter yang "diterima" input --
     ; tombol lain apapun (Esc, tombol Windows, dll) atau klik/pindah fokus ke
     ; luar window langsung menutup menu. Berlaku di mode manapun.
     myGui.Closing := false
@@ -428,7 +430,10 @@ ShowMenu() {
     OnMessage(0x0006, CloseOnDeactivate) ; WM_ACTIVATE
 
     CloseOnOtherKey(wParam, lParam, msg, hwnd) {
-        static allowed := Map(38, 1, 40, 1, 13, 1, 9, 1)  ; VK_UP, VK_DOWN, VK_RETURN, VK_TAB
+        ; VK_SHIFT (16) ikut diterima: menekan Shift SENDIRI (sebelum Tab pada
+        ; Shift+Tab) juga mengirim WM_KEYDOWN, dan tanpa ini menu tertutup
+        ; sebelum Tab sempat ditekan.
+        static allowed := Map(38, 1, 40, 1, 13, 1, 9, 1, 16, 1)  ; UP, DOWN, RETURN, TAB, SHIFT
         if myGui.Closing || allowed.Has(wParam)
             return
         ; Escape (27) di submenu manapun (mode != "main") = mundur satu
@@ -524,14 +529,14 @@ SetReminder(myGui, choice) {
 ; fungsi ini pakai WScript.Shell.Exec buat baca StdOut langsung, TAPI Exec()
 ; gak punya opsi buat nyembunyiin window sama sekali (beda dari Run()/
 ; RunWait() yang punya parameter "Hide"). Window PowerShell yang kelihatan
-; itu curi fokus dari popup QuickMenu, mancing logic dismiss-on-blur
+; itu curi fokus dari popup KOHA, mancing logic dismiss-on-blur
 ; (CloseOnDeactivate) nutup popup-nya duluan sebelum daftar reminder-nya
 ; sempat kebaca -- gejalanya: klik Cancel Reminder, window pwsh kekilat
-; sebentar, terus QuickMenu-nya ilang. Baca file lewat RunWait+FileRead
+; sebentar, terus KOHA-nya ilang. Baca file lewat RunWait+FileRead
 ; menghindari masalah ini total karena window-nya emang gak pernah muncul.
 GetPendingReminders() {
     scriptPath := A_ScriptDir "\scripts\list-reminders.ps1"
-    outFile := A_Temp "\quickmenu-pending-reminders.txt"
+    outFile := A_Temp "\koha-pending-reminders.txt"
     if FileExist(outFile)
         FileDelete(outFile)
     RunWait('powershell.exe -NoProfile -ExecutionPolicy Bypass -File "' scriptPath '"', , "Hide")
@@ -564,7 +569,7 @@ CancelReminder(myGui, taskName) {
 ; kosong, dan CurrentList() nangani itu dengan nampilin baris tanpa jam.
 GetPrayerTimesForDisplay() {
     scriptPath := A_ScriptDir "\scripts\get-prayer-times.ps1"
-    outFile := A_Temp "\quickmenu-prayer-times.txt"
+    outFile := A_Temp "\koha-prayer-times.txt"
     if FileExist(outFile)
         FileDelete(outFile)
     RunWait('powershell.exe -NoProfile -ExecutionPolicy Bypass -File "' scriptPath '"', , "Hide")

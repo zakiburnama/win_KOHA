@@ -1,10 +1,10 @@
 #Requires AutoHotkey v2.0
 
-; expense.ahk -- logika pencatatan pengeluaran QuickMenu Light, TANPA GUI:
+; expense.ahk -- logika pencatatan pengeluaran KOHA, TANPA GUI:
 ; parse input satu baris ("kopi susu 8k, ketoprak 15000"), pilah kategori/
 ; type dari rules.md di vault, lalu tulis ke daily note Obsidian. Popup
 ; input-nya sendiri (tahap berikutnya) cuma manggil RecordExpenses() di
-; bawah. Sengaja dipisah dari quickmenu_light.ahk supaya bisa dites lewat
+; bawah. Sengaja dipisah dari koha.ahk supaya bisa dites lewat
 ; console (tests/expense_test.ahk) tanpa nyentuh vault asli.
 ;
 ; Semua fungsi nerima path vault sebagai parameter -- EXPENSE_VAULT cuma

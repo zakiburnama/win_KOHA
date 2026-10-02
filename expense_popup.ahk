@@ -1,6 +1,6 @@
 #Requires AutoHotkey v2.0
 
-; expense_popup.ahk -- popup input "Pengeluaran" QuickMenu Light. Window
+; expense_popup.ahk -- popup input "Pengeluaran" KOHA. Window
 ; sendiri (bukan mode baru di ShowMenu), soalnya popup menu utama sengaja
 ; nutup pada tombol APAPUN selain panah/Enter (CloseOnOtherKey) -- gak
 ; mungkin dipakai ngetik. Dipanggil dari OnEnter() setelah window menu
@@ -38,7 +38,7 @@ ShowExpensePopup(theme, opts := "") {
     w := 560
     innerW := w - margin * 2
 
-    g := Gui("+AlwaysOnTop -Caption +ToolWindow", "QuickMenu Pengeluaran")
+    g := Gui("+AlwaysOnTop -Caption +ToolWindow", "KOHA Pengeluaran")
     g.BackColor := theme.bezel
     g.SetFont("s10 c" theme.fg, "Terminal")
 

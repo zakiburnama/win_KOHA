@@ -6,7 +6,7 @@
 ' in the first place.
 '
 ' Used only for the two Task Scheduler-triggered scripts (wallpaper
-' rotation, reminder firing) -- everything QuickMenu Light itself launches
+' rotation, reminder firing) -- everything KOHA itself launches
 ' directly via AHK's Run(..., "Hide") goes straight to powershell.exe.
 '
 ' Usage: wscript.exe run-hidden.vbs <script.ps1> [-Flag value ...]

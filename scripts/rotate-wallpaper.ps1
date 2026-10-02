@@ -2,14 +2,14 @@
     Advances the desktop wallpaper to the next image (alphabetical order) in
     the currently active global theme's wallpapers folder. Meant to be run
     periodically via Task Scheduler -- see install-wallpaper-rotation.ps1,
-    which registers it. Not launched by QuickMenu Light directly.
+    which registers it. Not launched by KOHA directly.
 
-    "Currently active theme" comes from %TEMP%\quickmenu-active-theme.txt,
+    "Currently active theme" comes from %TEMP%\koha-active-theme.txt,
     written by apply-theme.ps1 every time a global theme (catppuccin-mocha
-    or gruvbox) is picked from QuickMenu Light's Color Scheme submenu.
+    or gruvbox) is picked from KOHA's Color Scheme submenu.
 
     Its own position -- which image was shown last, and for which theme --
-    lives in %TEMP%\quickmenu-wallpaper-rotation.json. Keeping the theme
+    lives in %TEMP%\koha-wallpaper-rotation.json. Keeping the theme
     name alongside the index means switching themes always restarts at
     image #1 for the new theme, instead of carrying over an index that
     belonged to a different folder.
@@ -18,7 +18,7 @@
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\lib.ps1"
 
-$RotationStateFile = Join-Path $env:TEMP 'quickmenu-wallpaper-rotation.json'
+$RotationStateFile = Join-Path $env:TEMP 'koha-wallpaper-rotation.json'
 
 try {
     if (-not (Test-Path -LiteralPath $ActiveThemeFile)) {

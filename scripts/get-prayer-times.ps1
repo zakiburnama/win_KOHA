@@ -2,7 +2,7 @@
     Fetches today's prayer times and writes them to $PrayerTimesFile,
     pipe-delimited: key|DisplayName|HH:mm -- one line per prayer.
 
-    Called SYNCHRONOUSLY from quickmenu_light.ahk (RunWait(..., "Hide"),
+    Called SYNCHRONOUSLY from koha.ahk (RunWait(..., "Hide"),
     same pattern as list-reminders.ps1/GetPendingReminders()) right before
     showing the Waktu Sholat submenu, purely for DISPLAY -- the actual
     scheduling of reminder notifications is sync-prayer-reminders.ps1's

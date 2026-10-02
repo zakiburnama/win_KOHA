@@ -1,5 +1,5 @@
 <#
-    Shared helpers for QuickMenu Light's global-theme and reminder scripts
+    Shared helpers for KOHA's global-theme and reminder scripts
     (apply-theme.ps1, rotate-wallpaper.ps1, set-reminder.ps1,
     show-reminder.ps1). Dot-source this, don't run it directly:
         . "$PSScriptRoot\lib.ps1"
@@ -8,20 +8,20 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-$LogFile = Join-Path $env:TEMP 'quickmenu-apply-theme.log'
+$LogFile = Join-Path $env:TEMP 'koha-apply-theme.log'
 $WallpapersRoot = 'C:\PERSONAL-PROJECTS\linux\dotfiles\wallpapers'
-$ActiveThemeFile = Join-Path $env:TEMP 'quickmenu-active-theme.txt'
+$ActiveThemeFile = Join-Path $env:TEMP 'koha-active-theme.txt'
 $ImageExtensionPattern = '^\.(jpg|jpeg|png|bmp)$'
-# Written by list-reminders.ps1, read by quickmenu_light.ahk's
+# Written by list-reminders.ps1, read by koha.ahk's
 # GetPendingReminders() after a RunWait(..., "Hide") -- see that script's
 # header for why this is a file and not stdout.
-$PendingRemindersFile = Join-Path $env:TEMP 'quickmenu-pending-reminders.txt'
+$PendingRemindersFile = Join-Path $env:TEMP 'koha-pending-reminders.txt'
 
-# The same quickmenu_settings.ini quickmenu_light.ahk reads/writes via
+# The same koha_settings.ini koha.ahk reads/writes via
 # IniRead/IniWrite -- see Get-IniValue below for why PowerShell can't use
 # those same builtins. Never write to this file from PowerShell; AHK owns
 # it, these scripts only ever read.
-$SettingsFile = Join-Path (Split-Path $PSScriptRoot -Parent) 'quickmenu_settings.ini'
+$SettingsFile = Join-Path (Split-Path $PSScriptRoot -Parent) 'koha_settings.ini'
 
 # Obsidian vault theme sync -- the bulk of the styling comes from
 # switching "cssTheme" to one of the real, already-installed community
@@ -31,7 +31,7 @@ $SettingsFile = Join-Path (Split-Path $PSScriptRoot -Parent) 'quickmenu_settings
 # path, same "personal single-user tool" reasoning as $WallpapersRoot.
 $ObsidianVaultRoot = 'C:\Users\ThinkPad\Documents\Obsidian-Vault\.obsidian'
 $ObsidianAppearanceFile = Join-Path $ObsidianVaultRoot 'appearance.json'
-$ObsidianSnippetFile = Join-Path $ObsidianVaultRoot 'snippets\quickmenu-theme.css'
+$ObsidianSnippetFile = Join-Path $ObsidianVaultRoot 'snippets\koha-theme.css'
 
 # Prayer-time (waktu sholat) reminders -- Jakarta, via the myQuran API
 # (api.myquran.com, sourced from Kemenag RI). City is hardcoded rather than
@@ -50,7 +50,7 @@ $PrayerDisplayNames = [ordered]@{
     maghrib = 'Maghrib'
     isya    = 'Isya'
 }
-$PrayerTimesFile = Join-Path $env:TEMP 'quickmenu-prayer-times.txt'
+$PrayerTimesFile = Join-Path $env:TEMP 'koha-prayer-times.txt'
 
 function Write-Log {
     param([string]$Message)
@@ -62,7 +62,7 @@ function Set-FileContent {
     [System.IO.File]::WriteAllText($Path, $Content, [System.Text.UTF8Encoding]::new($false))
 }
 
-# Reads one key from quickmenu_settings.ini's [Settings] section. AHK's
+# Reads one key from koha_settings.ini's [Settings] section. AHK's
 # IniWrite saves .ini files as UTF-16LE with a BOM (confirmed via hex
 # dump), so this reads with -Encoding Unicode (Windows PowerShell 5.1's
 # name for UTF-16LE) rather than the default -- otherwise every line comes
@@ -110,7 +110,7 @@ function Get-PrayerTimesToday {
 Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
-public class QuickMenuWallpaper {
+public class KohaWallpaper {
     [DllImport("user32.dll", CharSet = CharSet.Auto)]
     public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
 }
@@ -128,7 +128,7 @@ function Set-DesktopWallpaper {
 
     Set-ItemProperty -Path 'HKCU:\Control Panel\Desktop' -Name WallpaperStyle -Value '10' # 10 = Fill
     Set-ItemProperty -Path 'HKCU:\Control Panel\Desktop' -Name TileWallpaper -Value '0'
-    [QuickMenuWallpaper]::SystemParametersInfo($SPI_SETDESKWALLPAPER, 0, $Path, ($SPIF_UPDATEINIFILE -bor $SPIF_SENDCHANGE)) | Out-Null
+    [KohaWallpaper]::SystemParametersInfo($SPI_SETDESKWALLPAPER, 0, $Path, ($SPIF_UPDATEINIFILE -bor $SPIF_SENDCHANGE)) | Out-Null
 }
 
 # All jpg/jpeg/png/bmp files directly inside $WallpapersRoot\<theme>\,

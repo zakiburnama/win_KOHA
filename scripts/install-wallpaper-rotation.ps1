@@ -12,12 +12,12 @@
     the current user (not SYSTEM), which is required: SYSTEM runs in
     session 0 and can't change the interactive desktop's wallpaper.
 
-    To remove it later: Unregister-ScheduledTask -TaskName 'QuickMenu Light - Wallpaper Rotation'
+    To remove it later: Unregister-ScheduledTask -TaskName 'KOHA - Wallpaper Rotation'
 #>
 
 $ErrorActionPreference = 'Stop'
 
-$TaskName = 'QuickMenu Light - Wallpaper Rotation'
+$TaskName = 'KOHA - Wallpaper Rotation'
 $LauncherPath = Join-Path $PSScriptRoot 'run-hidden.vbs'
 
 # wscript.exe + run-hidden.vbs, not powershell.exe directly -- see that
@@ -39,7 +39,7 @@ $settings = New-ScheduledTaskSettingsSet `
     -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
 
 Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Settings $settings `
-    -Description "Rotates QuickMenu Light's global-theme desktop wallpaper. Managed by the ahk/quickmenu repo -- see README.md." `
+    -Description "Rotates KOHA's global-theme desktop wallpaper. Managed by the KOHA repo -- see README.md." `
     -Force | Out-Null
 
 Write-Output "Registered scheduled task '$TaskName' -- runs rotate-wallpaper.ps1 every 30 min."

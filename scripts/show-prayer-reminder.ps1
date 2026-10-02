@@ -17,7 +17,7 @@ param(
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\lib.ps1"
 
-$taskName = "QuickMenu Light - Sholat $Prayer $(Get-Date -Format 'yyyy-MM-dd')"
+$taskName = "KOHA - Sholat $Prayer $(Get-Date -Format 'yyyy-MM-dd')"
 
 try {
     Show-Notification -Title 'Waktu Sholat' -Text "Waktu $Prayer telah masuk ($Time) -- $PrayerCityName" -Beep
