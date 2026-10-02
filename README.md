@@ -26,6 +26,7 @@ KOHA/
 ├── koha.ahk                   # the whole app: GUI, theming, keyboard handling, actions
 ├── expense.ahk                # Pengeluaran logic, no GUI: parse input, categorize, write to the daily note
 ├── expense_popup.ahk          # Pengeluaran input window (separate Gui, not a menu mode)
+├── app_search.ahk             # Search Apps: Start Menu scanner, matcher and input window
 ├── tests/                     # console tests for expense*.ahk — see Pengeluaran below
 ├── KOHA.exe                   # compiled build (see Running it below) — a genuine single file, gitignored
 ├── koha_settings.ini          # remembers your chosen color scheme and toggles — created on first use, gitignored
@@ -59,6 +60,7 @@ Most items are defined in `RunAction()` in [koha.ahk](koha.ahk:392) — Color Sc
 | Open WezTerm (Admin) | Same, elevated (`Run("*RunAs wezterm-gui")`) — triggers a UAC prompt |
 | Obsidian | Launches Obsidian via its full path under `%LOCALAPPDATA%\Programs\Obsidian\` — it's a per-user Electron install, not on PATH (see [Gotchas](#gotchas)) |
 | Claude Code | Launches the Claude desktop app (Claude Code lives in its **Code** tab) via `%LOCALAPPDATA%\AnthropicClaude\claude.exe`, which is a Squirrel launcher stub. Its path stays the same across app updates, unlike the versioned `app-x.y.z\` folders next to it. If the app is already running, it should just bring the existing window to the front instead of opening a second one (untested) |
+| Search Apps | Opens a type-to-search window for installed apps — see [Search Apps](#search-apps) below |
 | Pengeluaran | Opens a small input window to log an expense into the Obsidian daily note — see [Pengeluaran](#pengeluaran-expense-logging) below |
 | Color Scheme | Opens the theme picker described below |
 | Next Wallpaper | Advances the wallpaper by one image, on demand — see [Wallpaper slideshow](#wallpaper-slideshow) below. Works regardless of the Wallpaper Slideshow toggle's state. Stays open (like Color Scheme) so you can press it repeatedly to cycle through several — no in-popup feedback, the wallpaper change itself (visible on the desktop around the popup) is the confirmation |
@@ -70,6 +72,18 @@ Most items are defined in `RunAction()` in [koha.ahk](koha.ahk:392) — Color Sc
 | Menu Settings | Always the last row, and can't be hidden itself. Opens a list of every item above with an `(ON)`/`(OFF)` label. Enter flips an item (the submenu stays open); `(OFF)` items disappear from the main menu. Escape goes back to the main menu with the changes applied. Stored as `HiddenMenus=` (item names joined by `\|`) in `koha_settings.ini`. Empty or missing means everything is shown |
 
 To add or change an item, edit the `baseItems` array and the matching `case` in `RunAction()`.
+
+## Search Apps
+
+A lighter stand-in for the Windows Start menu search, which on this laptop has to "cold load" before the first search works. Pick **Search Apps** (first row of the menu), or launch `KOHA.exe search` to skip the menu and open the search window directly (handy for a second Lenovo Vantage key or a shortcut).
+
+Type part of an app's name, Up/Down/Tab/Shift+Tab to move through the (max 8) matches, **Enter** opens the selected one, **Esc** or clicking outside closes. Matching is case-insensitive and ranked: start of the name > start of a word > initials (`vsc` → Visual Studio Code) > anywhere in the name > letters in order (`wzt` → WezTerm). Several words must all match (`google chr`).
+
+**Why it adds no weight:** there is no index, cache file or background process. Each time the window opens, [app_search.ahk](app_search.ahk) scans the two Start Menu folders (`%APPDATA%` and `%ProgramData%`, `...\Microsoft\Windows\Start Menu\Programs`) for `.lnk`/`.url` files — about 6 ms for ~155 shortcuts on this machine — and matches in memory. Nothing to go stale: a newly installed app shows up immediately. Duplicate names collapse to one (your own folder wins), and `Uninstall ...` shortcuts are skipped.
+
+**Limitation:** only apps that have a Start Menu shortcut are found. Microsoft Store/UWP apps (Calculator, Settings, ...) don't, so they won't appear — listing them needs `shell:AppsFolder` via PowerShell/COM, which is the slow path this feature exists to avoid.
+
+**Tests:** `AutoHotkey64.exe tests/app_search_test.ahk` (fake Start Menu folders, matcher ranking, popup state, scan timing) — no vault needed, so it isn't part of `run-tests.ps1`.
 
 ## Pengeluaran (expense logging)
 
@@ -83,7 +97,8 @@ Logs an expense with minimal typing and files it into the Obsidian vault's daily
 | Ctrl+Enter | Review/change the category of **every** item first — a one-off correction, not learned |
 | Esc | Close — the only way to close the window (while picking a category it goes back to the input without saving instead) |
 
-**Unknown items.** Rules live in the vault at `Z0014-financeules.md` (`keyword, keyword => category | need/want`, editable in Obsidian; longest keyword wins, except `hutang` rules which always win). When nothing matches, the window asks for a category: **1–9** = pangan, papan, sandang, transportasi, kesehatan, hiburan, sosial, infaq, investasi. Ambiguous categories (pangan, sandang) then ask **N**eed / **W**ant; the others imply it. The answer is appended to `rules.md` under "Dipelajari otomatis" (size/quantity words like `946ml` are dropped from the keyword), so the same item is never asked twice. **Enter** instead skips: the line is saved as `lainnya | want` with a `#review` tag and nothing is learned.
+**Unknown items.** Rules live in the vault at `Z0014-finance
+ules.md` (`keyword, keyword => category | need/want`, editable in Obsidian; longest keyword wins, except `hutang` rules which always win). When nothing matches, the window asks for a category: **1–9** = pangan, papan, sandang, transportasi, kesehatan, hiburan, sosial, infaq, investasi. Ambiguous categories (pangan, sandang) then ask **N**eed / **W**ant; the others imply it. The answer is appended to `rules.md` under "Dipelajari otomatis" (size/quantity words like `946ml` are dropped from the keyword), so the same item is never asked twice. **Enter** instead skips: the line is saved as `lainnya | want` with a `#review` tag and nothing is learned.
 
 **What gets written** — one line per transaction under `## 💸 Finance`, in Dataview inline-field form:
 
@@ -95,7 +110,9 @@ The older 5-lines-per-expense blocks are left untouched (the new line goes after
 
 The vault path is hardcoded (`EXPENSE_VAULT` in [expense.ahk](expense.ahk)) — same single-user reasoning as the other hardcoded paths.
 
-**Tests.** `powershell -File testsun-tests.ps1` runs `expense_test.ahk` (parser, rules, writer) and `expense_popup_test.ahk` (the popup's state machine) against a throwaway copy of a few real daily notes — never the real vault. The popup test calls the handlers directly rather than sending keystrokes, so the physical hotkeys aren't covered; check those by hand. An optional `testsows.tsv` (name, category, type per line, gitignored since it's personal data) enables a regression check of `rules.md` against past expenses.
+**Tests.** `powershell -File tests
+un-tests.ps1` runs `expense_test.ahk` (parser, rules, writer) and `expense_popup_test.ahk` (the popup's state machine) against a throwaway copy of a few real daily notes — never the real vault. The popup test calls the handlers directly rather than sending keystrokes, so the physical hotkeys aren't covered; check those by hand. An optional `tests
+ows.tsv` (name, category, type per line, gitignored since it's personal data) enables a regression check of `rules.md` against past expenses.
 
 ### Dashboards (Obsidian)
 

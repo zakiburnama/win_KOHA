@@ -2,6 +2,7 @@
 #SingleInstance Force
 #Include expense.ahk
 #Include expense_popup.ahk
+#Include app_search.ahk
 
 ; KOHA -- versi native AHK murni, tanpa WebView2/HTML sama sekali.
 ; Tampil instan (tidak perlu nyalain proses browser terpisah). Tampilan retro
@@ -64,6 +65,7 @@ REMINDER_OPTIONS := ["5 min", "10 min", "15 min", "30 min", "60 min", "Waktu Sho
 PRAYER_NAMES := ["Subuh", "Dzuhur", "Ashar", "Maghrib", "Isya"]
 
 baseItems := [
+  "Search Apps",
   "Open Terminal (Admin)",
   "Open WezTerm",
   "Open WezTerm (Admin)",
@@ -93,7 +95,12 @@ for name in StrSplit(IniRead(SETTINGS_FILE, "Settings", "HiddenMenus", ""), "|")
     if name != ""
         HIDDEN_MENUS[name] := true
 
-ShowMenu()
+; "KOHA.exe search" langsung buka pencarian app tanpa lewat menu utama
+; (buat dipasang di tombol/shortcut terpisah).
+if A_Args.Length && A_Args[1] = "search"
+    ShowAppSearchPopup(THEMES[ACTIVE_THEME])
+else
+    ShowMenu()
 
 ShowMenu() {
     global baseItems, THEMES, THEME_NAMES, GLOBAL_THEMES, REMINDER_OPTIONS, PRAYER_NAMES, ACTIVE_THEME, SETTINGS_FILE, WALLPAPER_SLIDESHOW_ENABLED, MENU_SETTINGS_ITEM, HIDDEN_MENUS
@@ -346,6 +353,13 @@ ShowMenu() {
                 SwitchMode("theme")
             else if choice = "Reminder"
                 SwitchMode("reminder")
+            else if choice = "Search Apps" {
+                ; Window input terpisah (app_search.ahk), pola sama dengan
+                ; Pengeluaran di bawah -- popup menu ini tidak bisa dipakai ngetik.
+                myGui.Closing := true
+                myGui.Destroy()
+                ShowAppSearchPopup(state.theme)
+            }
             else if choice = MENU_SETTINGS_ITEM
                 SwitchMode("menus")
             else if choice = "Pengeluaran" {
