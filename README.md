@@ -226,6 +226,8 @@ koha.ahk
 ```
 Ahk2Exe.exe /in koha.ahk /out KOHA.exe /base "<path to AutoHotkey64.exe>"
 ```
+**Build the 64-bit exe** (`AutoHotkey64.exe` as the base, not `AutoHotkey32.exe`, which is what the Ahk2Exe GUI may pre-select). A 32-bit `KOHA.exe` can't launch shortcuts that point into `C:\Program Files` (Brave, Chrome, ...): the 32-bit process gets file-system redirection and `Run()` fails, while the same script run with 64-bit AutoHotkey works. Apps under `%LOCALAPPDATA%` (Obsidian) are unaffected, which makes it look random.
+
 Note: Ahk2Exe's argument parser breaks on spaces in `/base` — use the 8.3 short path (e.g. `C:\PROGRA~1\AUTOHO~1\v2\AUTOHO~2.EXE`) if your AutoHotkey install lives under `Program Files`.
 
 `KOHA.exe` is a genuine single file with no other dependencies — copy it anywhere.

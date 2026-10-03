@@ -138,11 +138,77 @@ HitBefore(a, b) {
     return StrCompare(a.app.lower, b.app.lower) < 0
 }
 
+; Window biasa yang kelihatan (punya judul, bukan tool window) -- dipakai
+; LaunchAndFocus buat mengenali window BARU yang muncul setelah Run().
+VisibleWindows() {
+    set := Map()
+    for hwnd in WinGetList() {
+        try {
+            if WinGetTitle(hwnd) != "" && (WinGetStyle(hwnd) & 0x10000000) && !(WinGetExStyle(hwnd) & 0x80)
+                set[hwnd] := true
+        }
+    }
+    return set
+}
+
+; Run() lalu angkat window barunya ke depan. Tanpa ini, app yang SUDAH
+; berjalan (Brave/Chrome: shortcut-nya membuka window baru di proses yang
+; ada) muncul di belakang window lain, karena Windows menolak merebut fokus
+; dari proses KOHA yang langsung keluar -- terlihat seperti "tidak terbuka".
+; App yang belum jalan biasanya otomatis di depan, jadi tidak terpengaruh.
+; Menunggu maksimal ~3 detik dan berhenti begitu window baru ketemu; kalau
+; tidak ada window baru (app cuma memfokuskan window lamanya), KOHA tetap
+; keluar setelah batas itu.
+LaunchAndFocus(path) {
+    before := VisibleWindows()
+    log := "path=" path
+    try Run(path)
+    catch as e
+        log .= " | Run GAGAL: " e.Message
+    deadline := A_TickCount + 3000
+    found := 0
+    while !found && A_TickCount < deadline {
+        Sleep(50)
+        for hwnd in VisibleWindows() {
+            if !before.Has(hwnd) {
+                found := hwnd
+                break
+            }
+        }
+    }
+    if found {
+        ok := ForceForeground(found)
+        log .= " | window baru: " WinGetTitle(found) " | di depan: " (ok ? "ya" : "TIDAK")
+    } else
+        log .= " | tidak ada window baru dalam 3 detik"
+    ; Log kecil buat diagnosa kalau app "tidak terbuka" -- ditimpa tiap
+    ; peluncuran, jadi tidak menumpuk.
+    try FileOpen(A_Temp "\koha-search.log", "w").Write(FormatTime(A_Now, "HH:mm:ss") " " log "`n")
+}
+
+; WinActivate biasa sering ditolak Windows (foreground lock) kalau proses
+; kita tidak dianggap sedang "dipakai user" -- misalnya KOHA.exe yang
+; dijalankan lewat tombol Lenovo Vantage, beda dari script yang dijalankan
+; manual. Bertahap: WinActivate dulu; kalau belum di depan, pakai trik
+; Alt (menekan Alt memberi proses ini hak ubah foreground), lalu
+; SwitchToThisWindow sebagai cadangan terakhir.
+ForceForeground(hwnd) {
+    try WinActivate(hwnd)
+    if WinWaitActive(hwnd, , 0.4)
+        return true
+    Send("{Alt down}{Alt up}")
+    try WinActivate(hwnd)
+    if WinWaitActive(hwnd, , 0.4)
+        return true
+    DllCall("SwitchToThisWindow", "Ptr", hwnd, "Int", 1)
+    return !!WinWaitActive(hwnd, , 0.4)
+}
+
 ShowAppSearchPopup(theme, opts := "") {
     global APP_SEARCH_ROWS
     dirs := (IsObject(opts) && opts.HasProp("dirs")) ? opts.dirs : ""
     onClose := (IsObject(opts) && opts.HasProp("onClose")) ? opts.onClose : (*) => ExitApp()
-    onLaunch := (IsObject(opts) && opts.HasProp("onLaunch")) ? opts.onLaunch : (path) => Run(path)
+    onLaunch := (IsObject(opts) && opts.HasProp("onLaunch")) ? opts.onLaunch : LaunchAndFocus
 
     apps := ScanStartMenuApps(dirs)
 
